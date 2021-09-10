@@ -8,7 +8,7 @@ namespace AwsExtended;
  *
  * @coversDefaultClass \AwsExtended\Config
  */
-class ConfigTest extends \PHPUnit_Framework_TestCase {
+class ConfigTest extends \Tests\TestCase {
 
   /**
    * @covers ::__construct
