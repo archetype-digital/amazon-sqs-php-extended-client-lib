@@ -3,6 +3,8 @@
 namespace AwsExtended;
 
 use Aws\ResultInterface;
+use Aws\Exception\AwsException;
+use Aws\S3\Exception\S3Exception;
 
 class S3Pointer {
 
@@ -71,9 +73,16 @@ class S3Pointer {
   public static function isS3Pointer(ResultInterface $result) {
     // Check that the second element of the 2 position array has the expected
     // keys (and no more).
-    return $result->count() == 2 &&
-    is_array($result->get(1)) &&
-    empty(array_diff($result->get(1), ['s3BucketName', 's3Key']));
+    if (count(json_decode($result['Messages'][0]['Body'],true))  == 2){
+        $pointerInfo = json_decode($result['Messages'][0]['Body'],true);
+        return array_key_exists('s3BucketName', $pointerInfo[1]) && array_key_exists('s3Key', $pointerInfo[1]);
+    }else{
+        return false;
+    }
+
+//    return $result->count() == 2 &&
+//    is_array($result->get(1)) &&
+//    empty(array_diff($result->get(1), ['s3BucketName', 's3Key']));
   }
 
 }

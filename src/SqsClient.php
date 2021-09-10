@@ -3,10 +3,10 @@
 namespace AwsExtended;
 
 use Aws\S3\S3Client;
+use Aws\S3\Exception\S3Exception;
 use Aws\Sdk;
 use Aws\Sqs\SqsClient as AwsSqsClient;
 use Ramsey\Uuid\Uuid;
-
 /**
  * Class SqsClient.
  *
@@ -108,12 +108,17 @@ class SqsClient implements SqsClientInterface {
     ]);
     // Detect if this is an S3 pointer message.
     if (S3Pointer::isS3Pointer($result)) {
-      $args = $result->get(1);
+        $pointerInfo = json_decode($result['Messages'][0]['Body'],true);
+        $args = $pointerInfo[1];
       // Get the S3 document with the message and return it.
-      return $this->getS3Client()->getObject([
-        'Bucket' => $args['s3BucketName'],
-        'Key'    => $args['s3Key']
-      ]);
+        return $this->getS3Client()->getObject([
+            'Bucket' => $args['s3BucketName'],
+            'Key'    => $args['s3Key']
+        ]);
+//      $sample =  $this->getS3Client()->getBucketWebsite([
+//            'Bucket' => $args['s3BucketName'],
+//            'Key'    => $args['s3Key']
+//      ]);
     }
     return $result;
   }
