@@ -14,12 +14,12 @@ class ConfigTest extends \Tests\TestCase {
    * @covers ::__construct
    * @dataProvider constructorProvider
    */
-  public function testConstructor($args, $bucket_name, $sqs_url, $send_to_s3) {
-    $configuration = new Config($args, $bucket_name, $sqs_url, $send_to_s3);
+  public function testConstructor($args, $bucketName, $sqsUrl, $sendToS3) {
+    $configuration = new Config($args, $bucketName, $sqsUrl, $sendToS3);
     $this->assertSame($args, $configuration->getConfig());
-    $this->assertSame($bucket_name, $configuration->getBucketName());
-    $this->assertSame($sqs_url, $configuration->getSqsUrl());
-    $this->assertSame($send_to_s3, $configuration->getSendToS3());
+    $this->assertSame($bucketName, $configuration->getBucketName());
+    $this->assertSame($sqsUrl, $configuration->getSqsUrl());
+    $this->assertSame($sendToS3, $configuration->getSendToS3());
   }
 
   /**

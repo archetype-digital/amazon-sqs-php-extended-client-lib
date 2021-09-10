@@ -36,7 +36,6 @@ class S3PointerTest extends \Tests\TestCase {
       ['lorem', 'ipsum', new Result([]), '[[null,null],{"s3BucketName":"lorem","s3Key":"ipsum"}]'],
       [NULL, NULL, NULL, '[[],{"s3BucketName":null,"s3Key":null}]'],
       ['lorem', TRUE, NULL, '[[],{"s3BucketName":"lorem","s3Key":true}]'],
-      [],{"s3BucketName": "tegos-anapoket-sqs-test", "s3Key": "561c2685-7148-4dac-9343-d85f5bf85cc4.json"}],
       ['lorem', 'ipsum', new Result([
         '@metadata' => 'fake_metadata',
         'ObjectUrl' => 'fake_object_url'

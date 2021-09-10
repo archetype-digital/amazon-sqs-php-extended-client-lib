@@ -6,28 +6,29 @@ use Aws\S3\S3Client;
 use Aws\Sqs\SqsClient as AwsSqsClient;
 use Ramsey\Uuid\Uuid;
 
-interface SqsClientInterface {
+interface SqsClientInterface
+{
+    /**
+     * The maximum size that SQS can accept.
+     */
+    public const MAX_SQS_SIZE_KB = 256;
 
-  /**
-   * The maximum size that SQS can accept.
-   */
-  const MAX_SQS_SIZE_KB = 256;
+    /**
+     * Sends the message to SQS.
+     *
+     * If the message cannot fit SQS, it gets stored in S3 and a pointer is sent
+     * to SQS.
+     *
+     * @param array $message containing a [Message, MessageAttributes]
+     *   The message to send.
+     * @param string $queueUrl
+     *   The SQS queue. Defaults to the one configured in the client.
+     *
+     * @return \Aws\ResultInterface
+     *   The result of the transaction.
+     */
+    public function sendMessage(array $params): ResultInterface;
 
-  /**
-   * Sends the message to SQS.
-   *
-   * If the message cannot fit SQS, it gets stored in S3 and a pointer is sent
-   * to SQS.
-   *
-   * @param array $message containing a [Message, MessageAttributes]
-   *   The message to send.
-   * @param string $queue_url
-   *   The SQS queue. Defaults to the one configured in the client.
-   *
-   * @return \Aws\ResultInterface
-   *   The result of the transaction.
-   */
-  public function sendMessage($message, $queue_url = NULL);
     /**
      * Sends the message to SQS.
      *
@@ -40,38 +41,43 @@ interface SqsClientInterface {
      * of successful and unsuccessful actions, you should check for batch errors
      * even when the call returns an HTTP status code of 200.
      *
-     * @param array $messages  containing a array $message
+     * @param array $messages containing a array $message
      *   The messages to send batch.
-     * @param string $queue_url
+     * @param array $params
      *   The SQS queue. Defaults to the one configured in the client.
      *
      * @return array \Aws\ResultInterface
      *   The result of the transaction.
      */
-    public function sendMessageBatch(array $messages = [], $queue_url = null);
+    public function sendMessageBatch(array $params): ResultInterface;
 
-
-  /**
-   * Gets a message from the queue.
-   *
-   * @param string $queue_url
-   *   The SQS queue. Defaults to the one configured in the client.
-   *
-   * @return \Aws\ResultInterface
-   *   The message
-   */
-  public function receiveMessage($queue_url = null);
 
     /**
-     * Delete a message from the queue.
+     * Gets a message from the queue.
      *
-     * @param string $queue_url
+     * @param array $param containing a ['AttributeNames',
+     *                                  'MessageAttributeNames',
+     *                                  'MaxNumberOfMessages',
+     *                                  'VisibilityTimeout',
+     *                                  'WaitTimeSeconds',
+     *                                  'QueueUrl'// REQUIRED];
      *   The SQS queue. Defaults to the one configured in the client.
      *
      * @return \Aws\ResultInterface
      *   The message
      */
-    public function deleteMessage($receiveMessageResult = null);
+    public function receiveMessage(array $params): ResultInterface;
+
+    /**
+     * Delete a message from the queue.
+     *
+     * @param string $queueUrl
+     *   The SQS queue. Defaults to the one configured in the client.
+     *
+     * @return \Aws\ResultInterface
+     *   The message
+     */
+    public function deleteMessage(ResultInterface $receiveMessageResult): ResultInterface;
 
     /**
      * Delete a message from the queue.
@@ -82,42 +88,41 @@ interface SqsClientInterface {
      * @return \Aws\ResultInterface
      *   The message
      */
-    public function deleteMessageBatch($receiveMessageResults = []);
+    public function deleteMessageBatch(ResultInterface $receiveMessageResult): ResultInterface;
 
-  /**
-   * Checks if a message is too big to be sent to SQS.
-   *
-   * @param $message
-   *   The message to check.
-   * @param int $max_size
-   *   The (optional) max considered for SQS.
-   *
-   * @return bool
-   *   TRUE if the message is too big.
-   */
-  public function isTooBig($message, $max_size = NULL);
+    /**
+     * Checks if a message is too big to be sent to SQS.
+     *
+     * @param $message
+     *   The message to check.
+     * @param int $maxSize
+     *   The (optional) max considered for SQS.
+     *
+     * @return bool
+     *   TRUE if the message is too big.
+     */
+    public function isTooBig($message, $maxSize = null);
 
-  /**
-   * Gets the underlying SQS client.
-   *
-   * @return \Aws\Sqs\SqsClient
-   *   The underlying SQS client.
-   */
-  public function getSqsClient();
+    /**
+     * Gets the underlying SQS client.
+     *
+     * @return \Aws\Sqs\SqsClient
+     *   The underlying SQS client.
+     */
+    public function getSqsClient();
 
-  /**
-   * Gets the underlying S3 client.
-   *
-   * @return \Aws\S3\S3Client
-   *   The underlying S3 client.
-   */
-  public function getS3Client();
+    /**
+     * Gets the underlying S3 client.
+     *
+     * @return \Aws\S3\S3Client
+     *   The underlying S3 client.
+     */
+    public function getS3Client();
 
-  /**
-   * Sets the config.
-   *
-   * @param \AwsExtended\ConfigInterface $config
-   */
-  public function setConfig($config);
-
+    /**
+     * Sets the config.
+     *
+     * @param \AwsExtended\ConfigInterface $config
+     */
+    public function setConfig($config);
 }

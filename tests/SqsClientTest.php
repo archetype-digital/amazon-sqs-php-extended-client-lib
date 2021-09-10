@@ -51,8 +51,8 @@ class SqsClientTest extends \Tests\TestCase
                 'StringValue' => "6"
             ]
         ];
-        $que_url = $configs['prefix'] . $configs['queue'];
-        $response = $client->sendMessage(message, $que_url);
+        $queUrl = $configs['prefix'] . $configs['queue'];
+        $response = $client->sendMessage(message, $queUrl);
         $this->assertEquals([
             'QueueUrl' => 'bar',
             'MessageBody' => $message['Message'],
@@ -100,7 +100,7 @@ class SqsClientTest extends \Tests\TestCase
             'ipsum',
             ConfigInterface::NEVER
         ));
-        $response = $client->receiveMessage($queue_url);
+        $response = $client->receiveMessage($queueUrl);
         $this->assertEquals([
             'QueueUrl' => 'bar',
             'MessageBody' => '[[{"Lorem":"lorem","Ipsum":"1234-fake-uuid.json"},"fake_object_url"],{"s3BucketName":"lorem","s3Key":"1234-fake-uuid.json"}]',
@@ -118,7 +118,7 @@ class SqsClientTest extends \Tests\TestCase
             'ipsum',
             ConfigInterface::NEVER
         ));
-        $response = $client->deleteMessage($queue_url);
+        $response = $client->deleteMessage($queueUrl);
         $this->assertEquals([
             'QueueUrl' => 'bar',
             'MessageBody' => '[[{"Lorem":"lorem","Ipsum":"1234-fake-uuid.json"},"fake_object_url"],{"s3BucketName":"lorem","s3Key":"1234-fake-uuid.json"}]',
