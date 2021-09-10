@@ -79,10 +79,6 @@ class S3Pointer {
     }else{
         return false;
     }
-
-//    return $result->count() == 2 &&
-//    is_array($result->get(1)) &&
-//    empty(array_diff($result->get(1), ['s3BucketName', 's3Key']));
   }
 
 }

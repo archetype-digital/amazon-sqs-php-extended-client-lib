@@ -19,7 +19,7 @@ interface SqsClientInterface {
    * If the message cannot fit SQS, it gets stored in S3 and a pointer is sent
    * to SQS.
    *
-   * @param $message
+   * @param array $message containing a [Message, MessageAttributes]
    *   The message to send.
    * @param string $queue_url
    *   The SQS queue. Defaults to the one configured in the client.
@@ -28,6 +28,28 @@ interface SqsClientInterface {
    *   The result of the transaction.
    */
   public function sendMessage($message, $queue_url = NULL);
+    /**
+     * Sends the message to SQS.
+     *
+     * Delivers up to ten messages to the specified queue. This is a batch
+     * version of SendMessage. The result of the send action on each message is
+     * reported individually in the response. Uploads message payloads to Amazon
+     * S3 when necessary.
+     *
+     * IMPORTANT:Because the batch request can result in a combination
+     * of successful and unsuccessful actions, you should check for batch errors
+     * even when the call returns an HTTP status code of 200.
+     *
+     * @param array $messages  containing a array $message
+     *   The messages to send batch.
+     * @param string $queue_url
+     *   The SQS queue. Defaults to the one configured in the client.
+     *
+     * @return array \Aws\ResultInterface
+     *   The result of the transaction.
+     */
+    public function sendMessageBatch(array $messages = [], $queue_url = null);
+
 
   /**
    * Gets a message from the queue.
@@ -38,7 +60,29 @@ interface SqsClientInterface {
    * @return \Aws\ResultInterface
    *   The message
    */
-  public function receiveMessage($queue_url = NULL);
+  public function receiveMessage($queue_url = null);
+
+    /**
+     * Delete a message from the queue.
+     *
+     * @param string $queue_url
+     *   The SQS queue. Defaults to the one configured in the client.
+     *
+     * @return \Aws\ResultInterface
+     *   The message
+     */
+    public function deleteMessage($receiveMessageResult = null);
+
+    /**
+     * Delete a message from the queue.
+     *
+     * @param array \Aws\ResultInterface   containing a string $ReceiptHandle
+     *   The SQS queue. Defaults to the one configured in the client.
+     *
+     * @return \Aws\ResultInterface
+     *   The message
+     */
+    public function deleteMessageBatch($receiveMessageResults = []);
 
   /**
    * Checks if a message is too big to be sent to SQS.
