@@ -48,9 +48,8 @@ class SqsClientTest extends \Tests\TestCase
             'version' => env('AWS_SDK_VERSION'),
         ];
         $bucketName = env('S3_BUCKET_NAME');
-        $sqsUrl = env('SQS_URL');
         $sendToS3 = 'ALWAYS';
-        $configuration = new Config($awsConfig, $bucketName, $sqsUrl, $sendToS3);
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
 
         $params['MessageBody'] = json_encode(range(1, 257 * 1024));
@@ -91,11 +90,10 @@ class SqsClientTest extends \Tests\TestCase
             'version' => env('AWS_SDK_VERSION'),
         ];
         $bucketName = env('S3_BUCKET_NAME');
-        $sqsUrl = env('SQS_URL');
         $sendToS3 = 'IF_NEEDED';
 
         //sqsClientに渡すconfigの組み立て
-        $configuration = new Config($awsConfig, $bucketName, $sqsUrl, $sendToS3);
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
 
         $params['MessageBody'] = json_encode('this is short message');
@@ -136,7 +134,6 @@ class SqsClientTest extends \Tests\TestCase
             'version' => env('AWS_SDK_VERSION'),
         ];
         $bucketName = env('S3_BUCKET_NAME');
-        $sqsUrl = env('SQS_URL');
         $sendToS3 = 'IF_NEEDED';
 
         //sqsClientに渡すconfigの組み立て
@@ -166,8 +163,7 @@ class SqsClientTest extends \Tests\TestCase
 
 
         $params['Entries'] = $entry;
-        $params['QueueUrl'] = $sqsUrl;
-
+        $params['QueueUrl'] = env('SQS_URL');
         $sendMessageResult = $sqsClient->sendMessageBatch($params);
 //        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
@@ -189,11 +185,10 @@ class SqsClientTest extends \Tests\TestCase
             'version' => env('AWS_SDK_VERSION'),
         ];
         $bucketName = env('S3_BUCKET_NAME');
-        $sqsUrl = env('SQS_URL');
         $sendToS3 = 'IF_NEEDED';
 
         //sqsClientに渡すconfigの組み立て
-        $configuration = new Config($awsConfig, $bucketName, $sqsUrl, $sendToS3);
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
         $params = ['MaxNumberOfMessages' => 9,
                     'QueueUrl' => env('SQS_URL'),
