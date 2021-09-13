@@ -24,13 +24,6 @@ interface ConfigInterface
     public function getBucketName();
 
   /**
-   * Gets the sqsUrl.
-   *
-   * @return null|string
-   */
-    public function getSqsUrl();
-
-  /**
    * Gets the sendToS3.
    *
    * @return null|string

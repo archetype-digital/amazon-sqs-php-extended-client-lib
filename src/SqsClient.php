@@ -5,6 +5,7 @@ namespace AwsExtended;
 use Aws\S3\S3Client;
 use Aws\S3\Exception\S3Exception;
 use Aws\Sdk;
+use Aws\ResultInterface;
 use Aws\Sqs\SqsClient as AwsSqsClient;
 use Ramsey\Uuid\Uuid;
 
@@ -61,7 +62,7 @@ class SqsClient implements SqsClientInterface
     /**
      * {@inheritdoc}
      */
-    public function sendMessage(array $params)
+    public function sendMessage(array $params): ResultInterface
     {
         //TODO 要質問 sendMessageの中にbucketName入れてもらうか別立てでconfigから取ってくるか
         $useSqs = $this->isNeedSqs($params['MessageBody']) || !$this->config->getBucketName();
@@ -93,12 +94,11 @@ class SqsClient implements SqsClientInterface
     /**
      * {@inheritdoc}
      */
-    public function sendMessageBatch(array $param)
+    public function sendMessageBatch(array $params): ResultInterface
     {
-        $entries = [];
-        foreach ($param['Entries'] as $entry) {
+        foreach ($params['Entries'] as $key => $value) {
             //TODO 要質問 sendMessageの中にbucketName入れてもらうか別立てでconfigから取ってくるか
-            $useSqs = $this->isNeedSqs($params['MessageBody']) || !$this->config->getBucketName();
+            $useSqs = $this->isNeedSqs($value['MessageBody']) || !$this->config->getBucketName();
             if (!$useSqs) {
                 // First send the object to S3. The modify the message to store an S3
                 // pointer to the message contents.
@@ -106,22 +106,18 @@ class SqsClient implements SqsClientInterface
                 $receipt = $this->getS3Client()->upload(
                     $this->config->getBucketName(),
                     $key,
-                    $entry['MessageBody'],
+                    $value['MessageBody'],
                 );
                 // Swap the message for a pointer to the actual message in S3.
                 $s3pointer = (string)(new S3Pointer($this->config->getBucketName(), $key, $receipt));
+                //本文をs3参照に置き換える
+                $params['Entries'][$key]['MessageBody'] = $s3pointer;
+            } else {
+                continue;
             }
-            if (!$useSqs) {
-                $entry['MessageBody'] = $s3pointer;
-            }
-            array_push($entries, $entry);
         }
-        //batch用リクエストの組み立て
-        $queueUrl = $param['QueueUrl'] ?: $this->config->getSqsUrl();
-        $sendMessageBatchRequest['QueueUrl'] = $queueUrl;
-        $sendMessageBatchRequest['Entries'] = $entries;
         try {
-            $sendMessageResults = $this->getSqsClient()->sendMessageBatch($sendMessageBatchRequest);
+            $sendMessageResults = $this->getSqsClient()->sendMessageBatch($params);
         } catch (AwsException $e) {
             // output error message if fails
             Log::error($e->getMessage());
@@ -133,68 +129,82 @@ class SqsClient implements SqsClientInterface
     /**
      * {@inheritdoc}
      */
-    //TODO 実際に10個とかパラメータ渡して外部結合試験が必要
-    public function receiveMessage(array $param)
+    public function receiveMessage(array $params): ResultInterface
     {
         // Get the message from the SQS queue.
-        $receiveMessageResult = $this->getSqsClient()->receiveMessage($param);
+        $receiveMessageResults = $this->getSqsClient()->receiveMessage($params);
         // Detect if this is an S3 pointer message.
-        if (S3Pointer::isS3Pointer($receiveMessageResult)) {
-            $pointerInfo = json_decode($receiveMessageResult['Messages'][0]['Body'], true);
-            $args = $pointerInfo[1];
-            try {
-                $s3GetObjectResult = $this->getS3Client()->getObject([
-                    'Bucket' => $args['s3BucketName'],
-                    'Key' => $args['s3Key']
-                ])['Body']->getContents();
-            } catch (S3Exception $e) {
-                Log::error($e->getMessage());
-                Log::error($e->getTraceAsString());
+        foreach ($receiveMessageResults['Messages'] as $key => $value) {
+            //格納されている内容が256kb未満の文字列の場合は通常の文字列で来ている。s3の参照情報が先頭に含まれていない場合は抜ける
+            if (!str_contains($value['Body'], '"statusCode":200,"effectiveUri"')) {
+                continue;
             }
-            //TODO getContentsせずに返したほうが良いか質問
-            return $s3GetObjectResult;
+            if (S3Pointer::isS3Pointer($value)) {
+                $pointerInfo = json_decode($value['Body'], true);
+                $args = $pointerInfo[1];
+                try {
+                    $s3GetObjectResult = $this->getS3Client()->getObject([
+                        'Bucket' => $args['s3BucketName'],
+                        'Key' => $args['s3Key']
+                    ])['Body']->getContents();
+                } catch (S3Exception $e) {
+                    Log::error($e->getMessage());
+                    Log::error($e->getTraceAsString());
+                }
+                $receiveMessageResults['Messages'][$key]['Body'] = $s3GetObjectResult;
+            } else {
+                throw new \Exception("invalid s3Pointer");
+            }
         }
-        return $receiveMessageResult;
+        return $receiveMessageResults;
     }
 
     /**
      * {@inheritdoc}
      */
-//TODO 要相談 S3オブジェクトをDELETEするには本文を見てS3ポインタかどうか判断する必要がある
+//TODO S3とsqsMessageの両方を消すためにはawssqs標準のdeletemessageBatchが使えない
 //TODO S3オブジェクトは削除せずS3の設定（保存期間）に任すのも一つの手
 //AWS標準のDeleteMessageは以下
 //https://docs.aws.amazon.com/aws-sdk-php/v3/api/api-sqs-2012-11-05.html#deletemessage
 //'QueueUrl' => '<string>', // REQUIRED
 //'ReceiptHandle' => '<string>', // REQUIRED
-    public function deleteMessage($receiveMessageResult)
+    public function deleteMessage($receiveMessageResults): ResultInterface
     {
-        if (S3Pointer::isS3Pointer($receiveMessageResult['Messages'][0]['Body'])) {
-            $pointerInfo = json_decode($result['Messages'][0]['Body'], true);
-            $args = $pointerInfo[1];
-            // Get the S3 document with the message and return it.
+        foreach ($receiveMessageResults['Messages'] as $key => $value) {
+            //格納されている内容が256kb未満の文字列の場合は通常の文字列で来ている。s3の参照情報が先頭に含まれていない場合は抜ける
+            if (!str_contains($value['Body'], '"statusCode":200,"effectiveUri"')) {
+                continue;
+            }
+            if (S3Pointer::isS3Pointer($value)) {
+                $pointerInfo = json_decode($value['Body'], true);
+                $args = $pointerInfo[1];
+                // Get the S3 document with the message and return it.
+                try {
+                    $deleteS3Result = $this->getS3Client()->deleteObject([
+                        'Bucket' => $args['s3BucketName'],
+                        'Key' => $args['s3Key']
+                    ]);
+                } catch (S3Exception $e) {
+                    Log::error($e->getMessage());
+                    Log::error($e->getTraceAsString());
+                }
+            } else {
+                throw new \Exception("invalid s3Pointer");
+            }
+
+            $receiptHandle = $value['ReceiptHandle'];
+            $queueUrl = $receiveMessageResults['@metadata']['effectiveUri'];
+
             try {
-                return $this->getS3Client()->deleteObject([
-                    'Bucket' => $args['s3BucketName'],
-                    'Key' => $args['s3Key']
+                // Delete the message from the SQS queue.
+                $deleteMessageResult = $this->getSqsClient()->deleteMessage([
+                    'QueueUrl' => $queueUrl,
+                    'ReceiptHandle' => $receiptHandle
                 ]);
-            } catch (S3Exception $e) {
+            } catch (AWSException $e) {
                 Log::error($e->getMessage());
                 Log::error($e->getTraceAsString());
             }
-        }
-
-        $receiptHandle = $receiveMessageResult['Messages'][0]['ReceiptHandle'];
-        $queueUrl = $this->config->getSqsUrl();
-
-        try {
-            // Delete the message from the SQS queue.
-            $deleteMessageResult = $this->getSqsClient()->deleteMessage([
-                'QueueUrl' => $queueUrl,
-                'ReceiptHandle' => $receiptHandle
-            ]);
-        } catch (AWSException $e) {
-            Log::error($e->getMessage());
-            Log::error($e->getTraceAsString());
         }
         return $deleteMessageResult;
     }
@@ -339,7 +349,7 @@ class SqsClient implements SqsClientInterface
      * @return bool Sqsのみ使用する場合 true を返します
      *
      */
-    protected function isNeedSqs($message)
+    protected function isNeedSqs($messageBody)
     {
         //s3に送信する場合
         switch ($this->config->getSendToS3()) {
@@ -352,7 +362,7 @@ class SqsClient implements SqsClientInterface
                 break;
 
             case ConfigInterface::IF_NEEDED:
-                $useSqs = !$this->isTooBig($message['Message']);
+                $useSqs = !$this->isTooBig($messageBody);
                 break;
 
             default:

@@ -20,13 +20,6 @@ class Config implements ConfigInterface
     protected $bucketName;
 
   /**
-   * The URL of the SQS queue to send messages to.
-   *
-   * @var null|string
-   */
-    protected $sqsUrl;
-
-  /**
    * Indicates when to send messages to S3.
    *
    * Allowed values are: ALWAYS, NEVER, IF_NEEDED.
@@ -41,8 +34,6 @@ class Config implements ConfigInterface
    * @param array $config
    *   Client configuration arguments. The same arguments passed to AwsClient.
    * @param string $bucketName
-   *   The name of the S3 bucket to send the data to.
-   * @param string $sqsUrl
    *   The SQS url to push messages to.
    * @param string $sendToS3
    *   Code that indicates when to send data to S3. Allowed values are:
@@ -53,14 +44,10 @@ class Config implements ConfigInterface
    * @throws \InvalidArgumentException if any required options are missing or
    * the service is not supported.
    */
-    public function __construct(array $config, $bucketName, $sqsUrl = null, $sendToS3 = null)
+    public function __construct(array $config, $bucketName, $sendToS3 = null)
     {
         $this->config = $config;
         $this->bucketName = $bucketName;
-        if ($sqsUrl) {
-            $this->sqsUrl = $sqsUrl;
-        }
-        $this->sqsUrl = $sqsUrl;
         if ($sendToS3) {
             if (!in_array($sendToS3, [self::ALWAYS, self::IF_NEEDED, self::NEVER])) {
                 throw new \InvalidArgumentException(sprintf('Invalid code for send_to_s3: %s.', $sendToS3));
@@ -83,14 +70,6 @@ class Config implements ConfigInterface
     public function getBucketName()
     {
         return $this->bucketName;
-    }
-
-  /**
-   * {@inheritdoc}
-   */
-    public function getSqsUrl()
-    {
-        return $this->sqsUrl;
     }
 
   /**

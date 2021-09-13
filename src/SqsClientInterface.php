@@ -3,6 +3,7 @@
 namespace AwsExtended;
 
 use Aws\S3\S3Client;
+use Aws\ResultInterface;
 use Aws\Sqs\SqsClient as AwsSqsClient;
 use Ramsey\Uuid\Uuid;
 
@@ -55,7 +56,7 @@ interface SqsClientInterface
     /**
      * Gets a message from the queue.
      *
-     * @param array $param containing a ['AttributeNames',
+     * @param array $params containing a ['AttributeNames',
      *                                  'MessageAttributeNames',
      *                                  'MaxNumberOfMessages',
      *                                  'VisibilityTimeout',
@@ -88,7 +89,7 @@ interface SqsClientInterface
      * @return \Aws\ResultInterface
      *   The message
      */
-    public function deleteMessageBatch(ResultInterface $receiveMessageResult): ResultInterface;
+//    public function deleteMessageBatch(ResultInterface $receiveMessageResult): ResultInterface;
 
     /**
      * Checks if a message is too big to be sent to SQS.
