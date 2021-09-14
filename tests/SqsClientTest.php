@@ -69,9 +69,32 @@ class SqsClientTest extends \Tests\TestCase
         ];
         $params['QueueUrl'] = env('SQS_URL');
         $sendMessageResult = $sqsClient->sendMessage($params);
-//        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
         $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+    }
+
+    /**
+     * @covers ::sendMessage
+     */
+    public function testSendMessageUseMock()
+    {
+
+        $config = $this->getMockBuilder(Config::class)
+            ->onlyMethods(['getSendToS3', 'getBucketName'])
+            ->setConstructorArgs([[], ''])
+            ->getMock();
+
+        $config->method('getSendToS3')->willReturn(ConfigInterface::NEVER);
+        $config->method('getBucketName')->willReturn(null);
+
+        $client = $this->getMockBuilder(SqsClient::class)
+            ->onlyMethods(['getSqsClient'])
+            ->setConstructorArgs([$config])
+            ->getMock();
+
+        $awsSqsClient = $this->prophesize(AwsSqsClient::class);
+
+        $client->method('getSqsClient')->willReturn($awsSqsClient);
 
     }
 
@@ -92,7 +115,6 @@ class SqsClientTest extends \Tests\TestCase
         $bucketName = env('S3_BUCKET_NAME');
         $sendToS3 = 'IF_NEEDED';
 
-        //sqsClientに渡すconfigの組み立て
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
 
@@ -111,7 +133,6 @@ class SqsClientTest extends \Tests\TestCase
                 'StringValue' => "6"
             ]
         ];
-        //送信
         $params['QueueUrl'] = env('SQS_URL');
         $sendMessageResult = $sqsClient->sendMessage($params);
 //        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
@@ -136,14 +157,19 @@ class SqsClientTest extends \Tests\TestCase
         $bucketName = env('S3_BUCKET_NAME');
         $sendToS3 = 'IF_NEEDED';
 
-        //sqsClientに渡すconfigの組み立て
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
 
         $entry = [];
-        for ($i = 0; $i <= 3; $i++) {
-            $entry[$i]['Id'] =  Uuid::uuid4()->toString();
-            $entry[$i]['MessageBody'] = json_encode('this is short message_' . $i);
+        for ($i = 0; $i <= 6; $i++) {
+            //Create two types of data with and without s3
+            $entry[$i]['Id'] = Uuid::uuid4()->toString();
+            if ($i % 2 == 0) {
+                $entry[$i]['MessageBody'] = json_encode(range(1, 257 * 1024));
+            } else {
+                $entry[$i]['MessageBody'] = json_encode('this is short message_' . $i);
+            }
+
             $entry[$i]['MessageAttributes'] = [
                 "Title" => [
                     'DataType' => "String",
@@ -160,8 +186,6 @@ class SqsClientTest extends \Tests\TestCase
             ];
 
         }
-
-
         $params['Entries'] = $entry;
         $params['QueueUrl'] = env('SQS_URL');
         $sendMessageResult = $sqsClient->sendMessageBatch($params);
@@ -175,8 +199,6 @@ class SqsClientTest extends \Tests\TestCase
      */
     public function testRecieveMessage()
     {
-        //$Config = \Mockery::mock(AwsExtended\Config::class);
-        //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
         $awsConfig = ['credentials' => [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -187,13 +209,13 @@ class SqsClientTest extends \Tests\TestCase
         $bucketName = env('S3_BUCKET_NAME');
         $sendToS3 = 'IF_NEEDED';
 
-        //sqsClientに渡すconfigの組み立て
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
         $params = ['MaxNumberOfMessages' => 9,
-                    'QueueUrl' => env('SQS_URL'),
-                    'VisibilityTimeout' => 9,
-                    'WaitTimeSeconds' => 9];
+            'QueueUrl' => env('SQS_URL'),
+            'VisibilityTimeout' => 9,
+            'MessageAttributeNames' => ['S3Pointer'],
+            'WaitTimeSeconds' => 20];
 
         $receiveMessageResult = $sqsClient->receiveMessage($params);
         $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
@@ -203,12 +225,8 @@ class SqsClientTest extends \Tests\TestCase
 //        ], $receiveMessageResult);
     }
 
-    /**
-     * @covers ::deleteMessage
-     */
     public function testDeleteMessage()
     {
-
         $awsConfig = ['credentials' => [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -217,95 +235,71 @@ class SqsClientTest extends \Tests\TestCase
             'version' => env('AWS_SDK_VERSION'),
         ];
         $bucketName = env('S3_BUCKET_NAME');
-        $sqsUrl = env('SQS_URL');
         $sendToS3 = 'IF_NEEDED';
 
-        //sqsClientに渡すconfigの組み立て
-        $configuration = new Config($awsConfig, $bucketName, $sqsUrl, $sendToS3);
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
-        $params = ['MaxNumberOfMessages' => 9,
-            'QueueUrl' => env('SQS_URL'),
-            'VisibilityTimeout' => 9,
-            'WaitTimeSeconds' => 9];
+        $queueUrl = env('SQS_URL');
 
-        $receiveMessageResult = $sqsClient->receiveMessage($params);
+        $receiptHandle = 'long value';
 
-
-        $deleteMessageResult = $sqsClient->deleteMessage($receiveMessageResult);
-        $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
-//        $this->assertEquals([
-//            'QueueUrl' => 'bar',
-//            'MessageBody' => '[[{"Lorem":"lorem","Ipsum":"1234-fake-uuid.json"},"fake_object_url"],{"s3BucketName":"lorem","s3Key":"1234-fake-uuid.json"}]',
-//        ], $deleteMessageResult);
+        $deleteMessageResult = $sqsClient->deleteMessage($queueUrl, $receiptHandle);
+        $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
     }
-//
-//    /**
-//     * @param ConfigInterface $config
-//     *   The configuration for the client.
-//     *
-//     * @return \PHPUnit_Framework_MockObject_MockObject
-//     */
-//    protected function getClientMock(ConfigInterface $config)
-//    {
-//        // Mock the AWS clients.
-//        $client = $this->getMockBuilder(SqsClient::class)
-//            ->setMethods(['getS3Client', 'getSqsClient', 'generateUuid'])
-//            ->setConstructorArgs([$config])
-//            ->getMock();
-//
-//        $client->method('generateUuid')->willReturn('1234-fake-uuid');
-//        $s3_client = $this->prophesize(S3Client::class);
-//        $client->method('getS3Client')->willReturn($s3_client->reveal());
-//        $s3_client->upload(Argument::type('string'), Argument::type('string'), Argument::type('string'))
-//            ->will(function ($args) {
-//                return new Result([
-//                    '@metadata' => ['Lorem' => $args[0], 'Ipsum' => $args[1]],
-//                    'ObjectUrl' => 'fake_object_url',
-//                ]);
-//            });
-//        $sqs_client = $this->prophesize(AwsSqsClient::class);
-//        $sqs_client->sendMessage(Argument::type('array'))->willReturnArgument(0);
-//        $client->method('getSqsClient')->willReturn($sqs_client->reveal());
-//
-//        return $client;
-//    }
-//
-//    /**
-//     * @covers ::isTooBig
-//     * @dataProvider isTooBigProvider
-//     */
-//    public function testIsTooBig($message, $is_too_big)
-//    {
-//        $client = new SqsClient(new Config(
-//            [],
-//            'lorem',
-//            'ipsum',
-//            ConfigInterface::NEVER
-//        ));
-//        // Data with more than 2 bytes is considered too big.
-//        $this->assertSame($is_too_big, $client->isTooBig($message, 2 / 1024));
-//    }
-//
-//    /**
-//     * Test data for the isTooBig test.
-//     *
-//     * @return array
-//     *   The data for the test method.
-//     */
-//    public function isTooBigProvider()
-//    {
-//        return [
-//            ['', FALSE],
-//            [NULL, FALSE],
-//            ['a', FALSE],
-//            ['aa', FALSE],
-//            ['aaa', TRUE],
-//            [TRUE, FALSE],
-//            [FALSE, FALSE],
-//            // Multi byte single characters.
-//            ['😱', TRUE], // 3 bytes character.
-//            ['añ', TRUE],  // 2 bytes character.
-//        ];
-//    }
 
+    public function testDeleteMessageNoUseS3()
+    {
+        $awsConfig = ['credentials' => [
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        ],
+            'region' => env('AWS_DEFAULT_REGION'),
+            'version' => env('AWS_SDK_VERSION'),
+        ];
+        $bucketName = env('S3_BUCKET_NAME');
+        $sendToS3 = 'IF_NEEDED';
+
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $sqsClient = new SqsClient($configuration);
+        $queueUrl = env('SQS_URL');
+
+        $receiptHandle = 'long value';
+        $deleteMessageResult = $sqsClient->deleteMessage($queueUrl, $receiptHandle);
+        $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
+    }
+
+
+    /**
+     * @covers ::deleteMessageBatch
+     */
+    public function testDeleteMessageBatch()
+    {
+        $awsConfig = ['credentials' => [
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        ],
+            'region' => env('AWS_DEFAULT_REGION'),
+            'version' => env('AWS_SDK_VERSION'),
+        ];
+        $bucketName = env('S3_BUCKET_NAME');
+        $sendToS3 = 'IF_NEEDED';
+
+        $entries = [
+            [
+                'Id' => '2b22d04d-cefa-4484-b0e5-9edada7c9a79',
+                'ReceiptHandle' => 'long value',
+            ],
+            [
+                'Id' => '4f90ffe4-36e3-4d43-b31f-46dce859f679',
+                'ReceiptHandle' => 'long value',
+            ],
+        ];
+        $queueUrl = env('SQS_URL');
+
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $sqsClient = new SqsClient($configuration);
+        $params = ['Entries' => $entries, 'QueueUrl' => $queueUrl];
+        $deleteMessageResult = $sqsClient->deleteMessageBatch($params);
+        $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
+    }
 }

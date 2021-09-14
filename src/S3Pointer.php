@@ -6,6 +6,21 @@ use Aws\ResultInterface;
 
 class S3Pointer
 {
+    /**
+     * Marker to store s3BucketName
+     */
+    public const S3_BUCKET_NAME_MARKER = '-..s3BucketName..-';
+
+    /**
+     * Marker to store s3Key
+     */
+    public const S3_KEY_MARKER = '-..s3Key..-';
+
+    /**
+     * The maximum size that SQS can accept.
+     */
+    public const RECEIPT_HANDLER_MATCHER = '/^-..s3BucketName..-(.*)-..s3Key..-(.*).json/';
+
 
     /**
      * The name of the bucket.
@@ -71,15 +86,71 @@ class S3Pointer
      * @return bool
      *   TRUE if the result corresponds to an S3 pointer. FALSE otherwise.
      */
-    public static function isS3Pointer(array $message): bool
+    public static function isS3Pointer(array $messageAttributes): bool
     {
         // Check that the second element of the 2 position array has the expected
         // keys (and no more)
-        if (count(json_decode($message['Body'], true)) == 2) {
-            $pointerInfo = json_decode($message['Body'], true);
+        if (isset($messageAttributes['S3Pointer']['StringValue']) && count(json_decode($messageAttributes['S3Pointer']['StringValue']), true) == 4) {
+            $pointerInfo = json_decode($messageAttributes['S3Pointer']['StringValue'], true);
             return array_key_exists('s3BucketName', $pointerInfo[1]) && array_key_exists('s3Key', $pointerInfo[1]);
         } else {
             return false;
+        }
+    }
+
+    /**
+     * Checks if a receiptHandle contain an S3 pointer.
+     *
+     * @param string $receiptHandle
+     *   The result from the SQS request.
+     *
+     * @return bool
+     *   TRUE if the result corresponds to an S3 pointer. FALSE otherwise.
+     */
+    public static function containsS3Pointer(string $receiptHandle): bool
+    {
+        if (isset($receiptHandle)) {
+            return preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle);
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * get S3 pointer from receiptHandle.
+     *
+     * @param string $receiptHandle
+     *   The result from the SQS request.
+     *
+     * @return array
+     *   S3 pointer. contains Bucket,Key
+     */
+    public static function getS3PointerFromReceiptHandle(string $receiptHandle): array
+    {
+        $s3Pointer = '';
+        preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle, $s3Pointer);
+        $s3Pointer = ['s3BucketName' => $s3Pointer['1'],
+            's3Key' => $s3Pointer['2'] . '.json'];
+
+        return $s3Pointer;
+    }
+
+
+    /**
+     * remove S3 pointer from receiptHandle.
+     *
+     * @param string $receiptHandle
+     *   The result from the SQS request.
+     *
+     * @return string
+     *   receiptHandle without S3 pointer.
+     */
+    public static function removeS3Pointer(string $receiptHandle): string
+    {
+        if (preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle)) {
+            return preg_replace(S3Pointer::RECEIPT_HANDLER_MATCHER, '', $receiptHandle);
+        } else {
+            return $receiptHandle;
         }
     }
 }

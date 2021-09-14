@@ -9,24 +9,24 @@ interface ConfigInterface
     public const ALWAYS = 'ALWAYS';
     public const NEVER = 'NEVER';
 
-  /**
-   * Gets the config.
-   *
-   * @return array
-   */
+    /**
+     * Gets the config.
+     *
+     * @return array
+     */
     public function getConfig();
 
-  /**
-   * Gets the bucketName.
-   *
-   * @return string
-   */
+    /**
+     * Gets the bucketName.
+     *
+     * @return string
+     */
     public function getBucketName();
 
-  /**
-   * Gets the sendToS3.
-   *
-   * @return null|string
-   */
+    /**
+     * Gets the sendToS3.
+     *
+     * @return null|string
+     */
     public function getSendToS3();
 }
