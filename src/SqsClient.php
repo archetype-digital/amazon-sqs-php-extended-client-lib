@@ -65,8 +65,8 @@ class SqsClient implements SqsClientInterface
      */
     public function sendMessage(array $params): ResultInterface
     {
-        $useSqs = $this->isNeedSqs($params['MessageBody']) || !$this->config->getBucketName();
-        if (!$useSqs) {
+        $useSqsOnly = $this->isNeedSqs(json_encode($params['MessageAttributes']) . $params['MessageBody']) || !$this->config->getBucketName();
+        if (!$useSqsOnly) {
             // First send the object to S3. The modify the message to store an S3
             // pointer to the message contents.
             $key = $this->generateUuid() . '.json';
@@ -89,6 +89,7 @@ class SqsClient implements SqsClientInterface
             // output error message if fails
             \Log::error($e->getMessage());
             \Log::error($e->getTraceAsString());
+            throw new \Exception($e->getMessage());
         }
         return $sendMessageResult;
     }
@@ -99,8 +100,8 @@ class SqsClient implements SqsClientInterface
     public function sendMessageBatch(array $params): ResultInterface
     {
         foreach ($params['Entries'] as $key => $value) {
-            $useSqs = $this->isNeedSqs($value['MessageBody']) || !$this->config->getBucketName();
-            if (!$useSqs) {
+            $useSqsOnly = $this->isNeedSqs(json_encode($value['MessageAttributes']) . $value['MessageBody']) || !$this->config->getBucketName();
+            if (!$useSqsOnly) {
                 // First send the object to S3. The modify the message to store an S3
                 // pointer to the message contents.
                 $s3Key = $this->generateUuid() . '.json';
@@ -332,21 +333,21 @@ class SqsClient implements SqsClientInterface
     {
         switch ($this->config->getSendToS3()) {
             case ConfigInterface::ALWAYS:
-                $useSqs = false;
+                $useSqsOnly = false;
                 break;
 
             case ConfigInterface::NEVER:
-                $useSqs = true;
+                $useSqsOnly = true;
                 break;
 
             case ConfigInterface::IF_NEEDED:
-                $useSqs = !$this->isTooBig($messageBody);
+                $useSqsOnly = !$this->isTooBig($messageBody);
                 break;
 
             default:
-                $useSqs = true;
+                $useSqsOnly = true;
                 break;
         }
-        return $useSqs;
+        return $useSqsOnly;
     }
 }

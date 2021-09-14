@@ -37,9 +37,6 @@ class SqsClientTest extends \Tests\TestCase
      */
     public function testSendMessage()
     {
-        //$Config = \Mockery::mock(AwsExtended\Config::class);
-        //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
-
         $awsConfig = ['credentials' => [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -118,13 +115,13 @@ class SqsClientTest extends \Tests\TestCase
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
 
-        $params['MessageBody'] = json_encode('this is short message');
+        $params['MessageBody'] = json_encode('this is short message aaaaa');
         $params['MessageAttributes'] = [
             "Title" => [
                 'DataType' => "String",
                 'StringValue' => "The Hitchhiker's Guide to the Galaxy"
             ],
-            "Author" => [
+            "Author" =>[
                 'DataType' => "String",
                 'StringValue' => "Douglas Adams."
             ],
@@ -135,7 +132,76 @@ class SqsClientTest extends \Tests\TestCase
         ];
         $params['QueueUrl'] = env('SQS_URL');
         $sendMessageResult = $sqsClient->sendMessage($params);
+        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
+        $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+    }
+    /**
+     * @covers ::sendMessage
+     */
+    public function testSendMessageNoUseS3LimitValue()
+    {
+        //$Config = \Mockery::mock(AwsExtended\Config::class);
+        //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
+        $awsConfig = ['credentials' => [
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        ],
+            'region' => env('AWS_DEFAULT_REGION'),
+            'version' => env('AWS_SDK_VERSION'),
+        ];
+        $bucketName = env('S3_BUCKET_NAME');
+        $sendToS3 = 'IF_NEEDED';
+
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $sqsClient = new SqsClient($configuration);
+        $messageLength = ($sqsClient::MAX_SQS_SIZE_KB*1024);
+
+        $params['MessageAttributes'] = [
+            "Title" => [
+                'DataType' => "String",
+                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
+            ],
+        ];
+
+        $params['MessageBody'] = str_repeat('b', $messageLength-strlen(json_encode($params['MessageAttributes'])));
+
+        $params['QueueUrl'] = env('SQS_URL');
+        $sendMessageResult = $sqsClient->sendMessage($params);
 //        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
+        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
+        $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+    }
+
+    /**
+     * @covers ::sendMessage
+     */
+    public function testSendMessageUseS3LimitValue()
+    {
+        $awsConfig = ['credentials' => [
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        ],
+            'region' => env('AWS_DEFAULT_REGION'),
+            'version' => env('AWS_SDK_VERSION'),
+        ];
+        $bucketName = env('S3_BUCKET_NAME');
+        $sendToS3 = 'IF_NEEDED';
+
+        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $sqsClient = new SqsClient($configuration);
+        $messageLength = ($sqsClient::MAX_SQS_SIZE_KB*1024)+1;
+
+        $params['MessageAttributes'] = [
+            "Title" => [
+                'DataType' => "String",
+                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
+            ],
+        ];
+
+        $params['MessageBody'] = str_repeat('z', $messageLength-strlen(json_encode($params['MessageAttributes'])));
+
+        $params['QueueUrl'] = env('SQS_URL');
+        $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
         $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
     }
@@ -145,8 +211,6 @@ class SqsClientTest extends \Tests\TestCase
      */
     public function testSendMessageBatch()
     {
-        //$Config = \Mockery::mock(AwsExtended\Config::class);
-        //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
         $awsConfig = ['credentials' => [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -189,7 +253,6 @@ class SqsClientTest extends \Tests\TestCase
         $params['Entries'] = $entry;
         $params['QueueUrl'] = env('SQS_URL');
         $sendMessageResult = $sqsClient->sendMessageBatch($params);
-//        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
     }
 
@@ -219,10 +282,6 @@ class SqsClientTest extends \Tests\TestCase
 
         $receiveMessageResult = $sqsClient->receiveMessage($params);
         $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
-//        $this->assertEquals([
-//            'QueueUrl' => 'bar',
-//            'MessageBody' => '[[{"Lorem":"lorem","Ipsum":"1234-fake-uuid.json"},"fake_object_url"],{"s3BucketName":"lorem","s3Key":"1234-fake-uuid.json"}]',
-//        ], $receiveMessageResult);
     }
 
     public function testDeleteMessage()

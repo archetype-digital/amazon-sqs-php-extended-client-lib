@@ -21,10 +21,7 @@ interface SqsClientInterface
      * If the message cannot fit SQS, it gets stored in S3 and a pointer is sent
      * to SQS.
      *
-     * @param array $message containing a [Message, MessageAttributes]
-     *   The message to send.
-     * @param string $queueUrl
-     *   The SQS queue. Defaults to the one configured in the client.
+     * @param array $params containing a [Message, MessageAttributes]
      *
      * @return \Aws\ResultInterface
      *   The result of the transaction.
@@ -88,8 +85,6 @@ interface SqsClientInterface
      * @param array $params containing array $entries, string $queueUrl
      *   The SQS queue. Defaults to the one configured in the client.
      *
-     * @param string $queueUrl
-     *   The SQS queue. Defaults to the one configured in the client.
      *
      * @return \Aws\ResultInterface
      *   The message
