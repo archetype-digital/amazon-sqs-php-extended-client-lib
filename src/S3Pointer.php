@@ -19,7 +19,7 @@ class S3Pointer
     /**
      * Regular expressions that SQS can accept.
      */
-    public const RECEIPT_HANDLER_MATCHER = '/^' . S3Pointer::S3_BUCKET_NAME_MARKER . '(.*)'. S3Pointer::S3_BUCKET_NAME_MARKER . S3Pointer::S3_KEY_MARKER . '(.*)' . S3Pointer::S3_KEY_MARKER . '/';
+    public const RECEIPT_HANDLER_MATCHER = '/^' . S3Pointer::S3_BUCKET_NAME_MARKER . '(.*)' . S3Pointer::S3_BUCKET_NAME_MARKER . S3Pointer::S3_KEY_MARKER . '(.*)' . S3Pointer::S3_KEY_MARKER . '/';
 
     /**
      * MessageAttribute title for sqs message set S3 infomation

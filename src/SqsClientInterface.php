@@ -69,15 +69,12 @@ interface SqsClientInterface
     /**
      * Delete a message from the queue.
      *
-     * @param string $queueUrl
-     *   The SQS queue. Defaults to the one configured in the client.
+     * @param array $params containing string QueueUrl, string ReceiptHandle
      *
-     * @param string $receiptHandle
-     *   ReceiptHandle is associated with a specific instance of receiving a message
      * @return \Aws\ResultInterface
      *   The message
      */
-    public function deleteMessage(string $queueUrl, string $receiptHandle): ResultInterface;
+    public function deleteMessage(array $params): ResultInterface;
 
     /**
      * Delete a message from the queue.

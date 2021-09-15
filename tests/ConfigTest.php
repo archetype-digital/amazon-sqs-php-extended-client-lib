@@ -33,8 +33,8 @@ class ConfigTest extends \Tests\TestCase
     public function constructorProvider()
     {
         return [
-            [[], 'lorem', 'ipsum', 'ALWAYS'],
-            [[1, 2, 'c'], 'dolor', 'sid', 'NEVER'],
+            [[], 'lorem', 'ALWAYS'],
+            [[1, 2, 'c'], 'dolor', 'NEVER'],
         ];
     }
 
@@ -44,7 +44,7 @@ class ConfigTest extends \Tests\TestCase
      */
     public function testConstructorFail()
     {
-        new Config([], 'lorem', 'ipsum', 'INVALID');
+        new Config([], 'lorem', 'INVALID');
     }
 
 }

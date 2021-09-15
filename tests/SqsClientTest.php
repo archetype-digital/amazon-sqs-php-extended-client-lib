@@ -223,7 +223,7 @@ class SqsClientTest extends \Tests\TestCase
         $sqsClient = new SqsClient($configuration);
 
         $entry = [];
-        for ($i = 0; $i <= 6; $i++) {
+        for ($i = 0; $i <= 5; $i++) {
             //Create two types of data with and without s3
             $entry[$i]['Id'] = Uuid::uuid4()->toString();
             if ($i % 2 == 0) {
@@ -298,9 +298,10 @@ class SqsClientTest extends \Tests\TestCase
         $sqsClient = new SqsClient($configuration);
         $queueUrl = env('SQS_URL');
 
-        $receiptHandle = 'long value';
+        $receiptHandle = 'longvalue';
+        $params = ['QueueUrl'=>$queueUrl,'ReceiptHandle'=>$receiptHandle];
 
-        $deleteMessageResult = $sqsClient->deleteMessage($queueUrl, $receiptHandle);
+        $deleteMessageResult = $sqsClient->deleteMessage($params);
         $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
     }
 
