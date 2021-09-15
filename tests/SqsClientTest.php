@@ -18,7 +18,12 @@ use Ramsey\Uuid\Uuid;
  */
 class SqsClientTest extends \Tests\TestCase
 {
-
+    private const AWS_ACCESS_KEY_ID = '';
+    private const AWS_SECRET_ACCESS_KEY = '';
+    private const AWS_DEFAULT_REGION = '';
+    private const AWS_SDK_VERSION = '';
+    private const S3_BUCKET_NAME = '';
+    private const SQS_URL = '';
     /**
      * @var \AwsExtended\SqsClientInterface
      */
@@ -38,13 +43,13 @@ class SqsClientTest extends \Tests\TestCase
     public function testSendMessage()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'ALWAYS';
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
@@ -64,7 +69,7 @@ class SqsClientTest extends \Tests\TestCase
                 'StringValue' => "6"
             ]
         ];
-        $params['QueueUrl'] = env('SQS_URL');
+        $params['QueueUrl'] = SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
         $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
@@ -76,23 +81,25 @@ class SqsClientTest extends \Tests\TestCase
     public function testSendMessageUseMock()
     {
 
-        $config = $this->getMockBuilder(Config::class)
-            ->onlyMethods(['getSendToS3', 'getBucketName'])
-            ->setConstructorArgs([[], ''])
-            ->getMock();
+        $configMock = Mockery::mock(Config::class)
+            ->shouldReceive([[], ''])
+            ->andReturn(Config::class);
 
-        $config->method('getSendToS3')->willReturn(ConfigInterface::NEVER);
-        $config->method('getBucketName')->willReturn(null);
+        $sqsClient = Mockery::mock(SqsClient::class)
+            ->makePartial()
+            ->shouldReceive($configMock)
+            ->andReturn(Result::class);
 
-        $client = $this->getMockBuilder(SqsClient::class)
-            ->onlyMethods(['getSqsClient'])
-            ->setConstructorArgs([$config])
-            ->getMock();
+        $params['MessageBody'] = json_encode(range(1, 257 * 1024));
+        $params['MessageAttributes'] = [
+            "Title" => [
+                'DataType' => "String",
+                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
+            ],
+        ];
 
-        $awsSqsClient = $this->prophesize(AwsSqsClient::class);
-
-        $client->method('getSqsClient')->willReturn($awsSqsClient);
-
+        $result = $sqsClient->sendMessage($params);
+        var_dump($result);
     }
 
     /**
@@ -103,13 +110,13 @@ class SqsClientTest extends \Tests\TestCase
         //$Config = \Mockery::mock(AwsExtended\Config::class);
         //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
@@ -130,7 +137,7 @@ class SqsClientTest extends \Tests\TestCase
                 'StringValue' => "6"
             ]
         ];
-        $params['QueueUrl'] = env('SQS_URL');
+        $params['QueueUrl'] = SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
         $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
@@ -141,13 +148,13 @@ class SqsClientTest extends \Tests\TestCase
     public function testSendMessageNoUseS3LimitValue()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
@@ -163,7 +170,7 @@ class SqsClientTest extends \Tests\TestCase
 
         $params['MessageBody'] = str_repeat('b', $messageLength-strlen(json_encode($params['MessageAttributes'])));
 
-        $params['QueueUrl'] = env('SQS_URL');
+        $params['QueueUrl'] = SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
 //        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
@@ -176,13 +183,13 @@ class SqsClientTest extends \Tests\TestCase
     public function testSendMessageUseS3LimitValue()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
@@ -198,7 +205,7 @@ class SqsClientTest extends \Tests\TestCase
 
         $params['MessageBody'] = str_repeat('z', $messageLength-strlen(json_encode($params['MessageAttributes'])));
 
-        $params['QueueUrl'] = env('SQS_URL');
+        $params['QueueUrl'] = SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
         $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
@@ -210,13 +217,13 @@ class SqsClientTest extends \Tests\TestCase
     public function testSendMessageBatch()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
@@ -249,7 +256,7 @@ class SqsClientTest extends \Tests\TestCase
 
         }
         $params['Entries'] = $entry;
-        $params['QueueUrl'] = env('SQS_URL');
+        $params['QueueUrl'] = SQS_URL;
         $sendMessageResult = $sqsClient->sendMessageBatch($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
     }
@@ -261,21 +268,21 @@ class SqsClientTest extends \Tests\TestCase
     public function testRecieveMessage()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
         $params = ['MaxNumberOfMessages' => 10,
-            'QueueUrl' => env('SQS_URL'),
+            'QueueUrl' => SQS_URL,
             'VisibilityTimeout' => 9,
-            'MessageAttributeNames' => [S3Pointer::RESERVED_ATTRIBUTE_NAME],
+            'MessageAttributeNames' => [],
             'WaitTimeSeconds' => 20];
 
         $receiveMessageResult = $sqsClient->receiveMessage($params);
@@ -285,18 +292,18 @@ class SqsClientTest extends \Tests\TestCase
     public function testDeleteMessage()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
-        $queueUrl = env('SQS_URL');
+        $queueUrl = SQS_URL;
 
         $receiptHandle = 'longvalue';
         $params = ['QueueUrl'=>$queueUrl,'ReceiptHandle'=>$receiptHandle];
@@ -308,18 +315,18 @@ class SqsClientTest extends \Tests\TestCase
     public function testDeleteMessageNoUseS3()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
-        $queueUrl = env('SQS_URL');
+        $queueUrl = SQS_URL;
 
         $receiptHandle = 'long value';
         $deleteMessageResult = $sqsClient->deleteMessage($queueUrl, $receiptHandle);
@@ -333,13 +340,13 @@ class SqsClientTest extends \Tests\TestCase
     public function testDeleteMessageBatch()
     {
         $awsConfig = ['credentials' => [
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => AWS_ACCESS_KEY_ID,
+            'secret' => AWS_SECRET_ACCESS_KEY,
         ],
-            'region' => env('AWS_DEFAULT_REGION'),
-            'version' => env('AWS_SDK_VERSION'),
+            'region' => AWS_DEFAULT_REGION,
+            'version' => AWS_SDK_VERSION,
         ];
-        $bucketName = env('S3_BUCKET_NAME');
+        $bucketName = S3_BUCKET_NAME;
         $sendToS3 = 'IF_NEEDED';
 
         $entries = [
@@ -352,7 +359,7 @@ class SqsClientTest extends \Tests\TestCase
                 'ReceiptHandle' => 'long value',
             ],
         ];
-        $queueUrl = env('SQS_URL');
+        $queueUrl = SQS_URL;
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);

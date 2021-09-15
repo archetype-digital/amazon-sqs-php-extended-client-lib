@@ -138,8 +138,8 @@ class SqsClient implements SqsClientInterface
     {
         // Get the message from the SQS queue.
         $receiveMessageResults = $this->getSqsClient()->receiveMessage($params);
-        if (empty($receiveMessageResults)) {
-            throw new \Exception('receiveMessageResults must be contains objects');
+        if (!isset($receiveMessageResults['Messages'])) {
+            return $receiveMessageResults;
         }
 
         foreach ($receiveMessageResults['Messages'] as $key => $value) {
@@ -155,7 +155,7 @@ class SqsClient implements SqsClientInterface
                 } catch (S3Exception $e) {
                     error_log($e->getMessage());
                     error_log($e->getTraceAsString());
-                    throw new \Exception($e->getMessage());
+                    $s3GetObjectResult = '';
                 }
                 $receiveMessageResults['Messages'][$key]['Body'] = $s3GetObjectResult;
                 $receiveMessageResults['Messages'][$key]['ReceiptHandle'] = S3Pointer::S3_BUCKET_NAME_MARKER . $args['s3BucketName'] . S3Pointer::S3_BUCKET_NAME_MARKER .
