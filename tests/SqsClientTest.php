@@ -140,8 +140,6 @@ class SqsClientTest extends \Tests\TestCase
      */
     public function testSendMessageNoUseS3LimitValue()
     {
-        //$Config = \Mockery::mock(AwsExtended\Config::class);
-        //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
         $awsConfig = ['credentials' => [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -274,10 +272,10 @@ class SqsClientTest extends \Tests\TestCase
 
         $configuration = new Config($awsConfig, $bucketName, $sendToS3);
         $sqsClient = new SqsClient($configuration);
-        $params = ['MaxNumberOfMessages' => 9,
+        $params = ['MaxNumberOfMessages' => 10,
             'QueueUrl' => env('SQS_URL'),
             'VisibilityTimeout' => 9,
-            'MessageAttributeNames' => ['S3Pointer'],
+            'MessageAttributeNames' => [S3Pointer::RESERVED_ATTRIBUTE_NAME],
             'WaitTimeSeconds' => 20];
 
         $receiveMessageResult = $sqsClient->receiveMessage($params);

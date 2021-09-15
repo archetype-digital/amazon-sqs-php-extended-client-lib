@@ -17,10 +17,14 @@ class S3Pointer
     public const S3_KEY_MARKER = '-..s3Key..-';
 
     /**
-     * The maximum size that SQS can accept.
+     * Regular expressions that SQS can accept.
      */
-    public const RECEIPT_HANDLER_MATCHER = '/^-..s3BucketName..-(.*)-..s3Key..-(.*).json/';
+    public const RECEIPT_HANDLER_MATCHER = '/^' . S3Pointer::S3_BUCKET_NAME_MARKER . '(.*)'. S3Pointer::S3_BUCKET_NAME_MARKER . S3Pointer::S3_KEY_MARKER . '(.*)' . S3Pointer::S3_KEY_MARKER . '/';
 
+    /**
+     * MessageAttribute title for sqs message set S3 infomation
+     */
+    public const RESERVED_ATTRIBUTE_NAME = 'ExtendedPayloadSize';
 
     /**
      * The name of the bucket.
@@ -89,9 +93,9 @@ class S3Pointer
     public static function isS3Pointer(array $messageAttributes): bool
     {
         // Check that the second element of the 2 position array has the expected
-        // keys (and no more)
-        if (isset($messageAttributes['S3Pointer']['StringValue']) && count(json_decode($messageAttributes['S3Pointer']['StringValue']), true) == 4) {
-            $pointerInfo = json_decode($messageAttributes['S3Pointer']['StringValue'], true);
+        // keys (and no more) TODO
+        if (isset($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue']) && count(json_decode($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue']), true) == 4) {
+            $pointerInfo = json_decode($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue'], true);
             return array_key_exists('s3BucketName', $pointerInfo[1]) && array_key_exists('s3Key', $pointerInfo[1]);
         } else {
             return false;
@@ -127,11 +131,9 @@ class S3Pointer
      */
     public static function getS3PointerFromReceiptHandle(string $receiptHandle): array
     {
-        $s3Pointer = '';
+        $test =  S3Pointer::RECEIPT_HANDLER_MATCHER;
         preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle, $s3Pointer);
-        $s3Pointer = ['s3BucketName' => $s3Pointer['1'],
-            's3Key' => $s3Pointer['2'] . '.json'];
-
+        $s3Pointer = ['s3BucketName' => $s3Pointer['1'], 's3Key' => $s3Pointer['2']];
         return $s3Pointer;
     }
 

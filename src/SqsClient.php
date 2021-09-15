@@ -65,20 +65,16 @@ class SqsClient implements SqsClientInterface
      */
     public function sendMessage(array $params): ResultInterface
     {
-        $useSqsOnly = $this->isNeedSqs(json_encode($params['MessageAttributes']) . $params['MessageBody']) || !$this->config->getBucketName();
-        if (!$useSqsOnly) {
+        $useS3 = $this->isNeedS3(json_encode($params['MessageAttributes']) . $params['MessageBody']) || !$this->config->getBucketName();
+        if ($useS3) {
             // First send the object to S3. The modify the message to store an S3
             // pointer to the message contents.
-            $key = $this->generateUuid() . '.json';
-            $receipt = $this->getS3Client()->upload(
-                $this->config->getBucketName(),
-                $key,
-                $params['MessageBody'],
-            );
-            // Swap the message for a pointer to the actual message in S3.
-            $s3Pointer = (string)(new S3Pointer($this->config->getBucketName(), $key, $receipt));
+            $s3Pointer = $this->uploadToS3($params['MessageBody']);
             $params['MessageBody'] = $s3Pointer;
-            $params['MessageAttributes'] = $params['MessageAttributes'] + ["S3Pointer" => [
+            if (empty($params['MessageAttributes'])) {
+                $params['MessageAttributes'] = [];
+            }
+            $params['MessageAttributes'] = $params['MessageAttributes'] + [S3Pointer::RESERVED_ATTRIBUTE_NAME => [
                     'DataType' => "String",
                     'StringValue' => $s3Pointer
                 ]];
@@ -100,21 +96,16 @@ class SqsClient implements SqsClientInterface
     public function sendMessageBatch(array $params): ResultInterface
     {
         foreach ($params['Entries'] as $key => $value) {
-            $useSqsOnly = $this->isNeedSqs(json_encode($value['MessageAttributes']) . $value['MessageBody']) || !$this->config->getBucketName();
-            if (!$useSqsOnly) {
+            $useS3 = $this->isNeedS3(json_encode($value['MessageAttributes']) . $value['MessageBody']) || !$this->config->getBucketName();
+            if ($useS3) {
                 // First send the object to S3. The modify the message to store an S3
-                // pointer to the message contents.
-                $s3Key = $this->generateUuid() . '.json';
-                $receipt = $this->getS3Client()->upload(
-                    $this->config->getBucketName(),
-                    $s3Key,
-                    $value['MessageBody'],
-                );
-                // Swap the message for a pointer to the actual message in S3.
-                $s3Pointer = (string)(new S3Pointer($this->config->getBucketName(), $s3Key, $receipt));
+                $s3Pointer = $this->uploadToS3($value['MessageBody']);
                 $params['Entries'][$key]['MessageBody'] = $s3Pointer;
+                if (empty($params['Entries'][$key]['MessageAttributes'])) {
+                    $params['Entries'][$key]['MessageAttributes'] = [];
+                }
                 $params['Entries'][$key]['MessageAttributes'] = $params['Entries'][$key]['MessageAttributes'] + [
-                        "S3Pointer" => [
+                        S3Pointer::RESERVED_ATTRIBUTE_NAME => [
                             'DataType' => "String",
                             'StringValue' => $s3Pointer
                         ]
@@ -147,7 +138,7 @@ class SqsClient implements SqsClientInterface
         foreach ($receiveMessageResults['Messages'] as $key => $value) {
             //Fetch data from s3 if reference information for s3 is contained in MessageAttributes
             if (isset($value['MessageAttributes']) && S3Pointer::isS3Pointer($value['MessageAttributes'])) {
-                $pointerInfo = json_decode($value['MessageAttributes']['S3Pointer']['StringValue'], true);
+                $pointerInfo = json_decode($value['MessageAttributes'][S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue'], true);
                 $args = $pointerInfo[1];
                 try {
                     $s3GetObjectResult = $this->getS3Client()->getObject([
@@ -160,8 +151,8 @@ class SqsClient implements SqsClientInterface
                     throw new \Exception($e->getMessage());
                 }
                 $receiveMessageResults['Messages'][$key]['Body'] = $s3GetObjectResult;
-                $receiveMessageResults['Messages'][$key]['ReceiptHandle'] = S3Pointer::S3_BUCKET_NAME_MARKER . $args['s3BucketName'] .
-                    S3Pointer::S3_KEY_MARKER . $args['s3Key'] .
+                $receiveMessageResults['Messages'][$key]['ReceiptHandle'] = S3Pointer::S3_BUCKET_NAME_MARKER . $args['s3BucketName'] . S3Pointer::S3_BUCKET_NAME_MARKER .
+                    S3Pointer::S3_KEY_MARKER . $args['s3Key'] . S3Pointer::S3_KEY_MARKER .
                     $receiveMessageResults['Messages'][$key]['ReceiptHandle'];
             }
         }
@@ -173,24 +164,12 @@ class SqsClient implements SqsClientInterface
      */
     public function deleteMessage(string $queueUrl, string $receiptHandle): ResultInterface
     {
+        //Delete s3 data first
         if (S3Pointer::containsS3Pointer($receiptHandle)) {
-            $args = S3Pointer::getS3PointerFromReceiptHandle($receiptHandle);
-            // Get the S3 document with the message and return it.
-            try {
-                $deleteS3Result = $this->getS3Client()->deleteObject([
-                    'Bucket' => $args['s3BucketName'],
-                    'Key' => $args['s3Key']
-                ]);
-            } catch (S3Exception $e) {
-                \Log::error($e->getMessage());
-                \Log::error($e->getTraceAsString());
-                throw new \Exception($e->getMessage());
-            }
-            //Remove S3 information from reciptHandle
-            $receiptHandle = S3Pointer::removeS3Pointer($receiptHandle);
+            $receiptHandle = $this->deleteFromS3($receiptHandle);
         }
+        // Delete the message from the SQS queue.
         try {
-            // Delete the message from the SQS queue.
             $deleteMessageResult = $this->getSqsClient()->deleteMessage([
                 'QueueUrl' => $queueUrl,
                 'ReceiptHandle' => $receiptHandle
@@ -211,25 +190,12 @@ class SqsClient implements SqsClientInterface
         //Delete s3 data first
         foreach ($params['Entries'] as $key => $value) {
             if (S3Pointer::containsS3Pointer($value['ReceiptHandle'])) {
-                $args = S3Pointer::getS3PointerFromReceiptHandle($value['ReceiptHandle']);
-                // Get the S3 document with the message and return it.
-                try {
-                    $deleteS3Result = $this->getS3Client()->deleteObject([
-                        'Bucket' => $args['s3BucketName'],
-                        'Key' => $args['s3Key']
-                    ]);
-                } catch (S3Exception $e) {
-                    \Log::error($e->getMessage());
-                    \Log::error($e->getTraceAsString());
-                    throw new \Exception($e->getMessage());
-                }
-                //Remove S3 information from reciptHandle
-                $params['Entries'][$key]['ReceiptHandle'] = S3Pointer::removeS3Pointer($value['ReceiptHandle']);
+                $receiptHandleWithoutS3Pointer = $this->deleteFromS3($value['ReceiptHandle']);
+                $params['Entries'][$key]['ReceiptHandle'] = $receiptHandleWithoutS3Pointer;
             }
         }
-
+        // Delete the message from the SQS queue.
         try {
-            // Delete the message from the SQS queue.
             $deleteMessageResult = $this->getSqsClient()->deleteMessageBatch($params);
         } catch (AWSException $e) {
             \Log::error($e->getMessage());
@@ -329,25 +295,79 @@ class SqsClient implements SqsClientInterface
      * @return bool
      * 　Returns true if only Sqs are used
      */
-    protected function isNeedSqs($messageBody)
+    protected function isNeedS3($messageBody)
     {
         switch ($this->config->getSendToS3()) {
             case ConfigInterface::ALWAYS:
-                $useSqsOnly = false;
+                $useS3 = true;
                 break;
 
             case ConfigInterface::NEVER:
-                $useSqsOnly = true;
+                $useS3 = false;
                 break;
 
             case ConfigInterface::IF_NEEDED:
-                $useSqsOnly = !$this->isTooBig($messageBody);
+                $useS3 = $this->isTooBig($messageBody);
                 break;
 
             default:
-                $useSqsOnly = true;
+                $useS3 = false;
                 break;
         }
-        return $useSqsOnly;
+        return $useS3;
+    }
+
+    /**
+     * upload MessageBody to S3
+     *
+     * @param $name
+     *   The name of the method to call.
+     *
+     * @return string
+     * 　Returns S3Pointer
+     */
+    protected function uploadToS3(string $messageBody): string
+    {
+        $s3Key = $this->generateUuid() . '.json';
+        try {
+            $receipt = $this->getS3Client()->upload(
+                $this->config->getBucketName(),
+                $s3Key,
+                $messageBody,
+            );
+        } catch (S3Exception $e) {
+            \Log::error($e->getMessage());
+            \Log::error($e->getTraceAsString());
+            throw new \Exception($e->getMessage());
+        }
+        // Swap the message for a pointer to the actual message in S3.
+        return (string)(new S3Pointer($this->config->getBucketName(), $s3Key, $receipt));
+    }
+
+    /**
+     * delete File from S3
+     *
+     * @param $receiptHandleWithS3Pointer
+     *   receiptHandle With S3Pointer
+     *
+     * @return string
+     * 　Returns receiptHandle WithOut S3Pointer
+     */
+    protected function deleteFromS3($receiptHandleWithS3Pointer): string
+    {
+        $args = S3Pointer::getS3PointerFromReceiptHandle($receiptHandleWithS3Pointer);
+        // Get the S3 document with the message and return it.
+        try {
+            $deleteS3Result = $this->getS3Client()->deleteObject([
+                'Bucket' => $args['s3BucketName'],
+                'Key' => $args['s3Key']
+            ]);
+        } catch (S3Exception $e) {
+            \Log::error($e->getMessage());
+            \Log::error($e->getTraceAsString());
+            throw new \Exception($e->getMessage());
+        }
+        //Remove S3 information from reciptHandle
+        return S3Pointer::removeS3Pointer($receiptHandleWithS3Pointer);
     }
 }
