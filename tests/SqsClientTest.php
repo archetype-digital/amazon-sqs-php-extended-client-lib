@@ -46,11 +46,66 @@ class SqsClientTest extends TestCase
         ];
     }
 
+    /**
+     * @covers ::getS3Client
+     * @covers ::getSqsClient
+     * @covers ::getClientFactory
+     */
+    public function testGetClient() {
+
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'ALWAYS');
+        $sqsClient = new SqsClient($configuration);
+
+        $sqs = $sqsClient->getSqsClient();
+        $this->assertInstanceOf(\Aws\Sqs\SqsClient::class, $sqs);
+        $this->assertSame($sqs, $sqsClient->getSqsClient());
+        $s3 = $sqsClient->getS3Client();
+        $this->assertInstanceOf(\Aws\S3\S3Client::class, $s3);
+        $this->assertSame($s3, $sqsClient->getS3Client());
+    }
+
+    public function methodNameProvider() {
+        return [
+            ['listQueues'],
+            ['purgeQueue'],
+            ['tagQueue'],
+        ];
+    }
+
+    /**
+     * SqSClientに定義のない\Aws\Sqs\SqSClient に存在するメソッドは、__call経由でコールされる
+     * @dataProvider methodNameProvider
+     * @covers ::__call
+     */
+    public function testCall($method) {
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test'
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive($method)
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'ALWAYS');
+        $sqsClient = new SqsClient($configuration);
+
+        $sendMessageResult = $sqsClient->{$method}([]);
+
+        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
+        $this->assertEquals('test', $sendMessageResult['MessageId']);
+    }
+
 
     /**
      * @runInSeparateProcess
      * @preserveGlobalState disabled
      * @covers ::sendMessage
+     * @covers ::isNeedS3
+     * @covers ::uploadToS3
      */
     public function testSendMessage()
     {
@@ -84,6 +139,40 @@ class SqsClientTest extends TestCase
      * @runInSeparateProcess
      * @preserveGlobalState disabled
      * @covers ::sendMessage
+     * @covers ::isNeedS3
+     */
+    public function testSendMessage_Never()
+    {
+        $this->s3Mock->shouldReceive('upload')
+            ->never();
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test'
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('sendMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'NEVER');
+        $sqsClient = new SqsClient($configuration);
+
+        $params['MessageBody'] = json_encode(range(1, 257 * 1024));
+        $sendMessageResult = $sqsClient->sendMessage($params);
+
+        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
+        $this->assertEquals('test', $sendMessageResult['MessageId']);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     * @covers ::sendMessage
+     * @covers ::isNeedS3
+     * @covers ::isTooBig
      */
     public function testSendMessage_NoUseS3()
     {
