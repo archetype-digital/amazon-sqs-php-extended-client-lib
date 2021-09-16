@@ -143,7 +143,7 @@ class SqsClient implements SqsClientInterface
         $s3Key = $this->generateUuid() . '.json';
 
         $tryCount = 0;
-        while (true) {
+        while ($tryCount < self::MAX_RETRY) {
             $tryCount++;
             try {
 
@@ -312,7 +312,7 @@ class SqsClient implements SqsClientInterface
         $args = S3Pointer::getS3PointerFromReceiptHandle($receiptHandleWithS3Pointer);
         // Get the S3 document with the message and return it.
         $tryCount = 0;
-        while (true) {
+        while ($tryCount < self::MAX_RETRY) {
             $tryCount++;
             try {
                 $this->getS3Client()->deleteObject([
