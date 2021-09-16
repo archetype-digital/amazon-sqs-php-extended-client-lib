@@ -10,6 +10,7 @@ use AwsExtended\SqsClient;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
 use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidFactory;
 
 /**
  * Class SqsClientTest.

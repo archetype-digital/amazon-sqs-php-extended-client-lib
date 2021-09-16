@@ -18,8 +18,15 @@ use Ramsey\Uuid\Uuid;
  */
 class SqsClient implements SqsClientInterface
 {
-    private const MAX_RETRY = 3;
-    private const TRY_INTERVAL = 1;
+    /**
+     * max retry count for failed s3 upload and delete actions
+     */
+    protected const MAX_RETRY = 3;
+
+    /**
+     * sleep interval for failed s3 upload and delete actions
+     */
+    protected const TRY_INTERVAL = 1;
     /**
      * The AWS client to push messages to SQS.
      *
@@ -59,7 +66,7 @@ class SqsClient implements SqsClientInterface
      */
     public function __construct(ConfigInterface $configuration)
     {
-        $this->config = $configuration;
+        $this->setConfig($configuration);
     }
 
     /**
@@ -127,9 +134,7 @@ class SqsClient implements SqsClientInterface
     /**
      * upload MessageBody to S3
      *
-     * @param $name
-     *   The name of the method to call.
-     *
+     * @param string $messageBody
      * @return string
      * 　Returns S3Pointer
      */
