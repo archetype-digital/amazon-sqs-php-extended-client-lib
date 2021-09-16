@@ -64,14 +64,7 @@ class S3PointerTest extends TestCase
     {
         return [
             [true,  [
-                'ExtendedPayloadSize' => [
-                    'StringValue' => '[{},{"s3BucketName":"1", "s3Key":"2"},{},{}]'
-                ],
-            ]],
-            [false, [
-                'ExtendedPayloadSize' => [
-                    'StringValue' => '[{},{"aaa":"1", "ccc":"2"},{},{}]'
-                ],
+                'ExtendedPayloadSize' => [],
             ]],
             [false, []],
         ];

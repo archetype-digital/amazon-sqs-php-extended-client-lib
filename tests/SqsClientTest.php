@@ -95,8 +95,7 @@ class SqsClientTest extends TestCase
 
         $sendMessageResult = $sqsClient->{$method}([]);
 
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertEquals('test', $sendMessageResult['MessageId']);
+        $this->assertSame($sqsResultMock, $sendMessageResult);
     }
 
 
@@ -106,6 +105,7 @@ class SqsClientTest extends TestCase
      * @covers ::sendMessage
      * @covers ::isNeedS3
      * @covers ::uploadToS3
+     * @covers ::generateUuid
      */
     public function testSendMessage()
     {
@@ -131,8 +131,7 @@ class SqsClientTest extends TestCase
         $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
 
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertEquals('test', $sendMessageResult['MessageId']);
+        $this->assertSame($sqsResultMock, $sendMessageResult);
     }
 
     /**
@@ -163,8 +162,7 @@ class SqsClientTest extends TestCase
         $params['MessageBody'] = json_encode(range(1, 257 * 1024));
         $sendMessageResult = $sqsClient->sendMessage($params);
 
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertEquals('test', $sendMessageResult['MessageId']);
+        $this->assertSame($sqsResultMock, $sendMessageResult);
     }
 
     /**
@@ -173,6 +171,7 @@ class SqsClientTest extends TestCase
      * @covers ::sendMessage
      * @covers ::isNeedS3
      * @covers ::isTooBig
+     * @covers ::getAttributeSize
      */
     public function testSendMessage_NoUseS3()
     {
@@ -195,8 +194,7 @@ class SqsClientTest extends TestCase
         $params['MessageBody'] = json_encode('this is short message aaaaa');
         $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertEquals('test', $sendMessageResult['MessageId']);
+        $this->assertSame($sqsResultMock, $sendMessageResult);
     }
 
     /**
@@ -246,6 +244,9 @@ class SqsClientTest extends TestCase
      * @runInSeparateProcess
      * @preserveGlobalState disabled
      * @covers ::sendMessage
+     * @covers ::isNeedS3
+     * @covers ::isTooBig
+     * @covers ::getAttributeSize
      */
     public function testSendMessage_UseS3LimitValue()
     {
@@ -279,8 +280,7 @@ class SqsClientTest extends TestCase
 
         $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertEquals('test', $sendMessageResult['MessageId']);
+        $this->assertSame($sqsResultMock, $sendMessageResult);
     }
 
     /**
@@ -322,7 +322,7 @@ class SqsClientTest extends TestCase
         $params['Entries'] = $entry;
         $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessageBatch($params);
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
+        $this->assertSame($sqsResultMock, $sendMessageResult);
     }
 
 
@@ -377,8 +377,9 @@ class SqsClientTest extends TestCase
             ->andReturn($sqsResultMock);
 
         $receiveMessageResult = $sqsClient->receiveMessage($params);
-        $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
+        $this->assertSame($sqsResultMock['@metadata'], $receiveMessageResult['@metadata']);
         $this->assertEquals('test', $receiveMessageResult['MessageId']);
+        $this->assertNotSame($sqsResultMock, $receiveMessageResult);
     }
 
     /**
@@ -411,8 +412,8 @@ class SqsClientTest extends TestCase
             ->andReturn($sqsResultMock);
 
         $receiveMessageResult = $sqsClient->receiveMessage($params);
-        $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
         $this->assertEquals('test', $receiveMessageResult['MessageId']);
+        $this->assertSame($sqsResultMock, $receiveMessageResult);
     }
 
     /**
@@ -472,6 +473,7 @@ class SqsClientTest extends TestCase
         $receiveMessageResult = $sqsClient->receiveMessage([]);
         $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
         $this->assertCount(1, $receiveMessageResult['Messages']);
+        $this->assertNotSame($sqsResultMock, $receiveMessageResult);
         $this->assertEquals('test', $receiveMessageResult['Messages'][0]['MessageId']);
         $this->assertEquals(json_encode(['test' => 1]), $receiveMessageResult['Messages'][0]['Body']);
     }
@@ -503,6 +505,7 @@ class SqsClientTest extends TestCase
 
         $deleteMessageResult = $sqsClient->deleteMessage($params);
         $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
+        $this->assertSame($sqsResultMock, $deleteMessageResult);
     }
 
     /**
@@ -545,6 +548,7 @@ class SqsClientTest extends TestCase
 
         $deleteMessageResult = $sqsClient->deleteMessage($params);
         $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
+        $this->assertSame($sqsResultMock, $deleteMessageResult);
     }
 
     /**
