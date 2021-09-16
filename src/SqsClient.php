@@ -87,8 +87,8 @@ class SqsClient implements SqsClientInterface
                 $params['MessageAttributes'] = [];
             }
             $params['MessageAttributes'] = $params['MessageAttributes'] + [S3Pointer::RESERVED_ATTRIBUTE_NAME => [
-                    'DataType' => "String",
-                    'StringValue' => $s3Pointer
+                    'DataType' => "Number",
+                    'StringValue' => strlen($params['MessageBody']),
                 ]];
         }
 
@@ -232,8 +232,8 @@ class SqsClient implements SqsClientInterface
                 }
                 $params['Entries'][$key]['MessageAttributes'] = $params['Entries'][$key]['MessageAttributes'] + [
                         S3Pointer::RESERVED_ATTRIBUTE_NAME => [
-                            'DataType' => "String",
-                            'StringValue' => $s3Pointer
+                            'DataType' => "Number",
+                            'StringValue' => strlen($params['MessageBody']),
                         ]
                     ];
             }
