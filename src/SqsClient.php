@@ -243,6 +243,7 @@ class SqsClient implements SqsClientInterface
 
     /**
      * @param array $attributes
+     * @return int
      */
     private function getAttributeSize(array $attributes) {
         $size = 0;
@@ -270,12 +271,12 @@ class SqsClient implements SqsClientInterface
             //Fetch data from s3 if reference information for s3 is contained in MessageAttributes
             if (isset($value['MessageAttributes']) && S3Pointer::isS3Pointer($value['MessageAttributes'])) {
 
-                $pointerInfo = json_decode($value['MessageAttributes'][S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue'], true);
-                $args = $pointerInfo[1];
+                $pointerInfo = json_decode($value['Body'], true);
+
                 try {
                     $s3Result = $this->getS3Client()->getObject([
-                        'Bucket' => $args['s3BucketName'],
-                        'Key' => $args['s3Key']
+                        'Bucket' => $pointerInfo['s3BucketName'],
+                        'Key' => $pointerInfo['s3Key']
                     ]);
 
                     $s3GetObjectResult = $s3Result['Body']->getContents();
@@ -284,8 +285,9 @@ class SqsClient implements SqsClientInterface
                     $s3GetObjectResult = '';
                 }
                 $receiveMessageResults['Messages'][$key]['Body'] = $s3GetObjectResult;
-                $receiveMessageResults['Messages'][$key]['ReceiptHandle'] = S3Pointer::S3_BUCKET_NAME_MARKER . $args['s3BucketName'] . S3Pointer::S3_BUCKET_NAME_MARKER .
-                    S3Pointer::S3_KEY_MARKER . $args['s3Key'] . S3Pointer::S3_KEY_MARKER .
+                $receiveMessageResults['Messages'][$key]['ReceiptHandle'] = S3Pointer::S3_BUCKET_NAME_MARKER .
+                    $pointerInfo['s3BucketName'] . S3Pointer::S3_BUCKET_NAME_MARKER .
+                    S3Pointer::S3_KEY_MARKER . $pointerInfo['s3Key'] . S3Pointer::S3_KEY_MARKER .
                     $receiveMessageResults['Messages'][$key]['ReceiptHandle'];
                 unset($receiveMessageResults['Messages'][$key]['MessageAttributes'][S3Pointer::RESERVED_ATTRIBUTE_NAME]);
 
