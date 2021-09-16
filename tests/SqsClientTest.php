@@ -10,7 +10,6 @@ use AwsExtended\SqsClient;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
 use Ramsey\Uuid\Uuid;
-use Ramsey\Uuid\UuidFactory;
 
 /**
  * Class SqsClientTest.
@@ -453,12 +452,16 @@ class SqsClientTest extends TestCase
             'Messages' => [[
                 'MessageAttributes' => [
                     'ExtendedPayloadSize' => [
-                        'StringValue' => '[{},{"s3BucketName":"1", "s3Key":"2"},{},{}]'
+                        'StringValue' => '300',
+                        'DataType' => 'Number',
                     ],
                 ],
                 'MessageId' => 'test',
                 'ReceiptHandle' => 'test-receipt-handle',
-                'Body' => []
+                'Body' => json_encode([
+                    's3BucketName' => 'test',
+                    's3Key' => 'test',
+                ])
             ]],
         ]])->makePartial();
 
