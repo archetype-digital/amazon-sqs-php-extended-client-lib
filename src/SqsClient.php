@@ -216,6 +216,7 @@ class SqsClient implements SqsClientInterface
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function sendMessageBatch(array $params): ResultInterface
     {
@@ -261,6 +262,15 @@ class SqsClient implements SqsClientInterface
      */
     public function receiveMessage(array $params): ResultInterface
     {
+        if(!isset($params['MessageAttributeNames'])) {
+            $params['MessageAttributeNames'] = ['All'];
+        } elseif (
+            array_search('All', $params['MessageAttributeNames']) === false
+            && array_search(S3Pointer::RESERVED_ATTRIBUTE_NAME, $params['MessageAttributeNames']) === false
+        ){
+            $params['MessageAttributeNames'][] = S3Pointer::RESERVED_ATTRIBUTE_NAME;
+        }
+
         // Get the message from the SQS queue.
         $results = $this->getSqsClient()->receiveMessage($params);
         if (!isset($results['Messages'])) {
