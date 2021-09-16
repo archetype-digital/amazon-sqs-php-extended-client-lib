@@ -6,7 +6,8 @@
   "require": {
     "php": "^8.0",
     "aws/aws-sdk-php": "3.*",
-    "ramsey/uuid": ">=3.4"
+    "ramsey/uuid": ">=3.4",
+    "mockery/mockery": "^1.4"
   },
   "require-dev": {
     "phpunit/phpunit": "^9.3.3"
