@@ -109,8 +109,7 @@ class SqsClient implements SqsClientInterface
                 break;
 
             case ConfigInterface::IF_NEEDED:
-                $attributeJson = !isset($message['MessageAttributes']) ? '' : json_encode($message['MessageAttributes']);
-                $useS3 = $this->isTooBig($message['MessageBody'] . $attributeJson);
+                $useS3 = $this->isTooBig($message);
                 break;
 
             default:
@@ -128,7 +127,8 @@ class SqsClient implements SqsClientInterface
         // The number of bytes as the number of characters. Notice that we are not
         // using mb_strlen() on purpose.
         $maxSize = $maxSize ?: static::MAX_SQS_SIZE_KB;
-        return strlen($message) > $maxSize * 1024;
+
+        return (strlen($message['MessageBody']) + $this->getAttributeSize($message['MessageAttributes'])) > $maxSize * 1024;
     }
 
     /**
@@ -239,6 +239,18 @@ class SqsClient implements SqsClientInterface
             }
         }
         return $this->getSqsClient()->sendMessageBatch($params);
+    }
+
+    /**
+     * @param array $attributes
+     */
+    private function getAttributeSize(array $attributes) {
+        $size = 0;
+        foreach ($attributes as $attribute) {
+            if(isset($attribute['DataType']))$size += strlen($attribute['DataType']);
+            if(isset($attribute['StringValue']))$size += strlen($attribute['StringValue']);
+            if(isset($attribute['BinaryValue']))$size += strlen($attribute['BinaryValue']);
+        }
     }
 
     /**
