@@ -71,7 +71,6 @@ class ConfigTest extends TestCase
 
     /**
      * @covers ::__construct
-     * @expectedException \InvalidArgumentException
      */
     public function testConstructorFail()
     {
