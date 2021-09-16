@@ -287,6 +287,8 @@ class SqsClient implements SqsClientInterface
                 $receiveMessageResults['Messages'][$key]['ReceiptHandle'] = S3Pointer::S3_BUCKET_NAME_MARKER . $args['s3BucketName'] . S3Pointer::S3_BUCKET_NAME_MARKER .
                     S3Pointer::S3_KEY_MARKER . $args['s3Key'] . S3Pointer::S3_KEY_MARKER .
                     $receiveMessageResults['Messages'][$key]['ReceiptHandle'];
+                unset($receiveMessageResults['Messages'][$key]['MessageAttributes'][S3Pointer::RESERVED_ATTRIBUTE_NAME]);
+
             }
         }
         return new Result($receiveMessageResults);
