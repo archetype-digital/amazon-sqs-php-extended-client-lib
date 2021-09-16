@@ -1,17 +1,15 @@
 <?php
 
-namespace AwsExtended;
-
 use Aws\Result;
-use Aws\ResultInterface;
+use AwsExtended\S3Pointer;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class S3PointerTest.
  *
  * @package AwsExtended
- * * @coversDefaultClass \ArchetypeDigital\AwsExtended\S3Pointer
  */
-class S3PointerTest extends \Tests\TestCase
+class S3PointerTest extends TestCase
 {
 
     /**

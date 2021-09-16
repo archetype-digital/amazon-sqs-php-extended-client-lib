@@ -1,6 +1,7 @@
 <?php
 
-namespace AwsExtended;
+use AwsExtended\Config;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class ConfigTest.
@@ -9,7 +10,7 @@ namespace AwsExtended;
  *
  * @coversDefaultClass \AwsExtended\Config
  */
-class ConfigTest extends \Tests\TestCase
+class ConfigTest extends TestCase
 {
 
     /**
@@ -44,6 +45,7 @@ class ConfigTest extends \Tests\TestCase
      */
     public function testConstructorFail()
     {
+        $this->expectException(\InvalidArgumentException::class);
         new Config([], 'lorem', 'INVALID');
     }
 

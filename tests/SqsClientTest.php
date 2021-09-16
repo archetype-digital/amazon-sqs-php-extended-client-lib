@@ -1,12 +1,14 @@
 <?php
 
-namespace AwsExtended;
-
+use Aws\Command;
+use Aws\Exception\AwsException;
 use Aws\Result;
 use Aws\S3\S3Client;
-use Aws\Sqs\SqsClient as AwsSqsClient;
-use Prophecy\Argument;
-use Mockery;
+use AwsExtended\Config;
+use AwsExtended\S3Pointer;
+use AwsExtended\SqsClient;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\StreamInterface;
 use Ramsey\Uuid\Uuid;
 
 /**
@@ -16,42 +18,57 @@ use Ramsey\Uuid\Uuid;
  *
  * @coversDefaultClass \AwsExtended\SqsClient
  */
-class SqsClientTest extends \Tests\TestCase
+class SqsClientTest extends TestCase
 {
-    private const AWS_ACCESS_KEY_ID = '';
-    private const AWS_SECRET_ACCESS_KEY = '';
-    private const AWS_DEFAULT_REGION = '';
-    private const AWS_SDK_VERSION = '';
-    private const S3_BUCKET_NAME = '';
-    private const SQS_URL = '';
-    /**
-     * @var \AwsExtended\SqsClientInterface
-     */
-    protected $client;
+    private const AWS_ACCESS_KEY_ID = 'dummy';
+    private const AWS_SECRET_ACCESS_KEY = 'dummy';
+    private const AWS_DEFAULT_REGION = 'dummy';
+    private const AWS_SDK_VERSION = 'latest';
+    private const S3_BUCKET_NAME = 'dummy';
+    private const SQS_URL = 'dummy';
 
-    /**
-     * {@inheritdoc}
-     */
+    private $s3Mock;
+    private $sqsMock;
+    private $awsConfig;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->sqsMock = Mockery::mock('overload:' . \Aws\Sqs\SqsClient::class);
+        $this->s3Mock = Mockery::mock('overload:' . S3Client::class);
+        $this->awsConfig = ['credentials' => [
+            'key' => self::AWS_ACCESS_KEY_ID,
+            'secret' => self::AWS_SECRET_ACCESS_KEY,
+        ],
+            'region' => self::AWS_DEFAULT_REGION,
+            'version' => self::AWS_SDK_VERSION,
+        ];
     }
 
+
     /**
+     * @runInSeparateProcess
      * @covers ::sendMessage
      */
     public function testSendMessage()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'ALWAYS';
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $this->s3Mock->shouldReceive('upload')
+            ->once()
+            ->andReturn(Mockery::mock(Result::class)->makePartial());
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test'
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('sendMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'ALWAYS');
         $sqsClient = new SqsClient($configuration);
 
         $params['MessageBody'] = json_encode(range(1, 257 * 1024));
@@ -69,132 +86,93 @@ class SqsClientTest extends \Tests\TestCase
                 'StringValue' => "6"
             ]
         ];
-        $params['QueueUrl'] = SQS_URL;
+        $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
+
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+        $this->assertEquals('test', $sendMessageResult['MessageId']);
     }
 
     /**
+     * @runInSeparateProcess
      * @covers ::sendMessage
      */
-    public function testSendMessageUseMock()
+    public function testSendMessage_NoUseS3()
     {
-
-        $configMock = Mockery::mock(Config::class)
-            ->shouldReceive([[], ''])
-            ->andReturn(Config::class);
-
-        $sqsClient = Mockery::mock(SqsClient::class)
-            ->makePartial()
-            ->shouldReceive($configMock)
-            ->andReturn(Result::class);
-
-        $params['MessageBody'] = json_encode(range(1, 257 * 1024));
-        $params['MessageAttributes'] = [
-            "Title" => [
-                'DataType' => "String",
-                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
             ],
-        ];
+            'MessageId' => 'test'
+        ]])->makePartial();
 
-        $result = $sqsClient->sendMessage($params);
-        var_dump($result);
-    }
+        $this->sqsMock->shouldReceive('sendMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
 
-    /**
-     * @covers ::sendMessage
-     */
-    public function testSendMessageNoUseS3()
-    {
-        //$Config = \Mockery::mock(AwsExtended\Config::class);
-        //$configuration = new $Config($config, $bucketName, $sqsUrl, $sendToS3);
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
+        $this->s3Mock->shouldReceive('upload')->never();
 
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
         $sqsClient = new SqsClient($configuration);
 
         $params['MessageBody'] = json_encode('this is short message aaaaa');
-        $params['MessageAttributes'] = [
-            "Title" => [
-                'DataType' => "String",
-                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
-            ],
-            "Author" =>[
-                'DataType' => "String",
-                'StringValue' => "Douglas Adams."
-            ],
-            "WeeksOn" => [
-                'DataType' => "Number",
-                'StringValue' => "6"
-            ]
-        ];
-        $params['QueueUrl'] = SQS_URL;
+        $params['MessageAttributes'] = [];
+        $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+        $this->assertEquals('test', $sendMessageResult['MessageId']);
     }
+
     /**
+     * @runInSeparateProcess
      * @covers ::sendMessage
      */
-    public function testSendMessageNoUseS3LimitValue()
+    public function testSendMessage_SendFail()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
+        $this->sqsMock->shouldReceive('sendMessage')
+            ->once()
+            ->andThrow(new AwsException('dummy', new Command('sqs')));
 
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $this->s3Mock->shouldReceive('upload')->never();
+
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
         $sqsClient = new SqsClient($configuration);
-        $messageLength = ($sqsClient::MAX_SQS_SIZE_KB*1024);
 
-        $params['MessageAttributes'] = [
-            "Title" => [
-                'DataType' => "String",
-                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
-            ],
-        ];
+        $params['MessageBody'] = json_encode('this is short message aaaaa');
+        $params['MessageAttributes'] = [];
+        $params['QueueUrl'] = self::SQS_URL;
 
-        $params['MessageBody'] = str_repeat('b', $messageLength-strlen(json_encode($params['MessageAttributes'])));
-
-        $params['QueueUrl'] = SQS_URL;
-        $sendMessageResult = $sqsClient->sendMessage($params);
-//        $this->assertInternalType('AWS/ResultInterface', $sendMessageResult);
-        $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+        $this->expectException(Exception::class);
+        $sqsClient->sendMessage($params);
     }
 
     /**
+     * @runInSeparateProcess
      * @covers ::sendMessage
      */
-    public function testSendMessageUseS3LimitValue()
+    public function testSendMessage_NoBucket()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
 
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $configuration = new Config($this->awsConfig, '', 'ALWAYS');
         $sqsClient = new SqsClient($configuration);
-        $messageLength = ($sqsClient::MAX_SQS_SIZE_KB*1024)+1;
+
+        $params['MessageAttributes'] = [];
+        $params['MessageBody'] = '';
+        $params['QueueUrl'] = self::SQS_URL;
+
+        $this->expectException(Exception::class);
+        $sqsClient->sendMessage($params);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @covers ::sendMessage
+     */
+    public function testSendMessage_UseS3LimitValue()
+    {
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
+        $sqsClient = new SqsClient($configuration);
+        $messageLength = ($sqsClient::MAX_SQS_SIZE_KB * 1024) + 1;
 
         $params['MessageAttributes'] = [
             "Title" => [
@@ -203,30 +181,36 @@ class SqsClientTest extends \Tests\TestCase
             ],
         ];
 
-        $params['MessageBody'] = str_repeat('z', $messageLength-strlen(json_encode($params['MessageAttributes'])));
+        $params['MessageBody'] = str_repeat('z', $messageLength - strlen(json_encode($params['MessageAttributes'])));
 
-        $params['QueueUrl'] = SQS_URL;
+        $this->s3Mock->shouldReceive('upload')
+            ->once()
+            ->andReturn(Mockery::mock(Result::class)->makePartial());
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test'
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('sendMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
-        $this->assertMatchesRegularExpression('[[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}]', $sendMessageResult['MessageId']);
+        $this->assertEquals('test', $sendMessageResult['MessageId']);
     }
 
     /**
-     * @covers ::sendMessage
+     * @runInSeparateProcess
+     * @covers ::sendMessageBatch
      */
     public function testSendMessageBatch()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
-
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
         $sqsClient = new SqsClient($configuration);
 
         $entry = [];
@@ -238,116 +222,246 @@ class SqsClientTest extends \Tests\TestCase
             } else {
                 $entry[$i]['MessageBody'] = json_encode('this is short message_' . $i);
             }
-
-            $entry[$i]['MessageAttributes'] = [
-                "Title" => [
-                    'DataType' => "String",
-                    'StringValue' => "The Hitchhiker's Guide to the Galaxy"
-                ],
-                "Author" => [
-                    'DataType' => "String",
-                    'StringValue' => "Douglas Adams."
-                ],
-                "WeeksOn" => [
-                    'DataType' => "Number",
-                    'StringValue' => "6"
-                ]
-            ];
-
         }
+
+        $this->s3Mock->shouldReceive('upload')
+            ->times(3)
+            ->andReturn(Mockery::mock(Result::class)->makePartial());
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test'
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('sendMessageBatch')
+            ->once()
+            ->andReturn($sqsResultMock);
+
         $params['Entries'] = $entry;
-        $params['QueueUrl'] = SQS_URL;
+        $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessageBatch($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
     }
 
-
     /**
+     * @runInSeparateProcess
      * @covers ::receiveMessage
      */
-    public function testRecieveMessage()
+    public function testReceiveMessage_NotS3()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
-
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
         $sqsClient = new SqsClient($configuration);
         $params = ['MaxNumberOfMessages' => 10,
-            'QueueUrl' => SQS_URL,
+            'QueueUrl' => self::SQS_URL,
             'VisibilityTimeout' => 9,
             'MessageAttributeNames' => [],
             'WaitTimeSeconds' => 20];
 
+        $this->s3Mock->shouldReceive('getObject')
+            ->once()
+            ->andReturn();
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test',
+            'Messages' => [],
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('receiveMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
         $receiveMessageResult = $sqsClient->receiveMessage($params);
         $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
+        $this->assertEquals('test', $receiveMessageResult['MessageId']);
     }
 
-    public function testDeleteMessage()
+    /**
+     * @runInSeparateProcess
+     * @covers ::receiveMessage
+     */
+    public function testReceiveMessage_NoMessages()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
-
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
         $sqsClient = new SqsClient($configuration);
-        $queueUrl = SQS_URL;
+        $params = ['MaxNumberOfMessages' => 10,
+            'QueueUrl' => self::SQS_URL,
+            'VisibilityTimeout' => 9,
+            'MessageAttributeNames' => [],
+            'WaitTimeSeconds' => 20];
 
-        $receiptHandle = 'longvalue';
-        $params = ['QueueUrl'=>$queueUrl,'ReceiptHandle'=>$receiptHandle];
+        $this->s3Mock->shouldReceive('getObject')
+            ->never();
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test'
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('receiveMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $receiveMessageResult = $sqsClient->receiveMessage($params);
+        $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
+        $this->assertEquals('test', $receiveMessageResult['MessageId']);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @covers ::receiveMessage
+     */
+    public function testReceiveMessage_FromS3()
+    {
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
+        $sqsClient = new SqsClient($configuration);
+
+        $streamMock = Mockery::mock(StreamInterface::class)
+            ->shouldReceive('getContents')
+            ->once()
+            ->andReturn(json_encode([
+                'test' => 1
+            ]))
+            ->getMock();
+
+        $s3ResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'MessageId' => 'test',
+            'Body' => $streamMock,
+        ]])->makePartial();
+
+        $this->s3Mock->shouldReceive('getObject')
+            ->once()
+            ->andReturn($s3ResultMock);
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+            'Messages' => [[
+                'MessageAttributes' => [
+                    'ExtendedPayloadSize' => [
+                        'StringValue' => '[{},{"s3BucketName":"1", "s3Key":"2"},{},{}]'
+                    ],
+                ],
+                'MessageId' => 'test',
+                'ReceiptHandle' => 'test-receipt-handle',
+                'Body' => []
+            ]],
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('receiveMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $receiveMessageResult = $sqsClient->receiveMessage([]);
+        $this->assertEquals(200, $receiveMessageResult['@metadata']['statusCode']);
+        $this->assertCount(1, $receiveMessageResult['Messages']);
+        $this->assertEquals('test', $receiveMessageResult['Messages'][0]['MessageId']);
+        $this->assertEquals(json_encode(['test' => 1]), $receiveMessageResult['Messages'][0]['Body']);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @covers ::receiveMessage
+     */
+    public function testDeleteMessage_NotS3()
+    {
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
+        $sqsClient = new SqsClient($configuration);
+        $params = ['QueueUrl' => self::SQS_URL, 'ReceiptHandle' => 'longvalue'];
+
+        $mock = Mockery::mock('alias:' . S3Pointer::class);
+        $mock->shouldReceive('containsS3Pointer')
+            ->once()
+            ->andReturn(false);
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('deleteMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
 
         $deleteMessageResult = $sqsClient->deleteMessage($params);
         $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
     }
 
-    public function testDeleteMessageNoUseS3()
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     * @covers ::receiveMessage
+     */
+    public function testDeleteMessage_S3()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
-
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
         $sqsClient = new SqsClient($configuration);
-        $queueUrl = SQS_URL;
+        $params = ['QueueUrl' => self::SQS_URL, 'ReceiptHandle' => 'longvalue'];
+        $mock = Mockery::mock('alias:' . S3Pointer::class);
+        $mock->shouldReceive('getS3PointerFromReceiptHandle')
+            ->once()
+            ->andReturn([
+                's3BucketName' => '',
+                's3Key' => '',
+            ]);
+        $mock->shouldReceive('containsS3Pointer')
+            ->once()
+            ->andReturn(true);
+        $mock->shouldReceive('removeS3Pointer')
+            ->once()
+            ->andReturn(true);
 
-        $receiptHandle = 'long value';
-        $deleteMessageResult = $sqsClient->deleteMessage($queueUrl, $receiptHandle);
+        $this->s3Mock->shouldReceive('deleteObject')
+            ->once();
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('deleteMessage')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $deleteMessageResult = $sqsClient->deleteMessage($params);
         $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
     }
 
-
     /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::deleteMessageBatch
      */
-    public function testDeleteMessageBatch()
+    public function testDeleteMessageBatch_NoS3()
     {
-        $awsConfig = ['credentials' => [
-            'key' => AWS_ACCESS_KEY_ID,
-            'secret' => AWS_SECRET_ACCESS_KEY,
-        ],
-            'region' => AWS_DEFAULT_REGION,
-            'version' => AWS_SDK_VERSION,
-        ];
-        $bucketName = S3_BUCKET_NAME;
-        $sendToS3 = 'IF_NEEDED';
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
+        $sqsClient = new SqsClient($configuration);
+
+        $mock = Mockery::mock('alias:' . S3Pointer::class);
+        $mock->shouldReceive('containsS3Pointer')
+            ->twice()
+            ->andReturn(false);
+
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('deleteMessageBatch')
+            ->once()
+            ->andReturn($sqsResultMock);
 
         $entries = [
             [
@@ -359,12 +473,64 @@ class SqsClientTest extends \Tests\TestCase
                 'ReceiptHandle' => 'long value',
             ],
         ];
-        $queueUrl = SQS_URL;
-
-        $configuration = new Config($awsConfig, $bucketName, $sendToS3);
-        $sqsClient = new SqsClient($configuration);
-        $params = ['Entries' => $entries, 'QueueUrl' => $queueUrl];
+        $params = ['Entries' => $entries, 'QueueUrl' => self::SQS_URL];
         $deleteMessageResult = $sqsClient->deleteMessageBatch($params);
         $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     * @covers ::deleteMessageBatch
+     */
+    public function testDeleteMessageBatch_S3()
+    {
+        $configuration = new Config($this->awsConfig, self::S3_BUCKET_NAME, 'IF_NEEDED');
+        $sqsClient = new SqsClient($configuration);
+
+        $mock = Mockery::mock('alias:' . S3Pointer::class);
+        $mock->shouldReceive('getS3PointerFromReceiptHandle')
+            ->twice()
+            ->andReturn([
+                's3BucketName' => '',
+                's3Key' => '',
+            ]);
+        $mock->shouldReceive('containsS3Pointer')
+            ->twice()
+            ->andReturn(true);
+        $mock->shouldReceive('removeS3Pointer')
+            ->twice()
+            ->andReturn(true);
+        $this->s3Mock->shouldReceive('deleteObject')
+            ->twice();
+        $sqsResultMock = Mockery::mock(Result::class, [[
+            '@metadata' => [
+                'statusCode' => 200
+            ],
+        ]])->makePartial();
+
+        $this->sqsMock->shouldReceive('deleteMessageBatch')
+            ->once()
+            ->andReturn($sqsResultMock);
+
+        $entries = [
+            [
+                'Id' => '2b22d04d-cefa-4484-b0e5-9edada7c9a79',
+                'ReceiptHandle' => 'long value',
+            ],
+            [
+                'Id' => '4f90ffe4-36e3-4d43-b31f-46dce859f679',
+                'ReceiptHandle' => 'long value',
+            ],
+        ];
+        $params = ['Entries' => $entries, 'QueueUrl' => self::SQS_URL];
+        $deleteMessageResult = $sqsClient->deleteMessageBatch($params);
+        $this->assertEquals(200, $deleteMessageResult['@metadata']['statusCode']);
+    }
+
+    public function tearDown(): void
+    {
+        parent::tearDown();
+        Mockery::close();
     }
 }
