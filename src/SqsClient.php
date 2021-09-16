@@ -2,6 +2,7 @@
 
 namespace AwsExtended;
 
+use Aws\Exception\AwsException;
 use Aws\Result;
 use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
@@ -127,8 +128,8 @@ class SqsClient implements SqsClientInterface
         // The number of bytes as the number of characters. Notice that we are not
         // using mb_strlen() on purpose.
         $maxSize = $maxSize ?: static::MAX_SQS_SIZE_KB;
-
-        return (strlen($message['MessageBody']) + $this->getAttributeSize($message['MessageAttributes'])) > $maxSize * 1024;
+        $attrSize = isset($message['MessageAttributes']) ? $this->getAttributeSize($message['MessageAttributes']) : 0;
+        return (strlen($message['MessageBody']) + $attrSize) > $maxSize * 1024;
     }
 
     /**
@@ -233,7 +234,7 @@ class SqsClient implements SqsClientInterface
                 $params['Entries'][$key]['MessageAttributes'] = $params['Entries'][$key]['MessageAttributes'] + [
                         S3Pointer::RESERVED_ATTRIBUTE_NAME => [
                             'DataType' => "Number",
-                            'StringValue' => strlen($params['MessageBody']),
+                            'StringValue' => strlen($value['MessageBody']),
                         ]
                     ];
             }
@@ -252,6 +253,7 @@ class SqsClient implements SqsClientInterface
             if(isset($attribute['StringValue']))$size += strlen($attribute['StringValue']);
             if(isset($attribute['BinaryValue']))$size += strlen($attribute['BinaryValue']);
         }
+        return $size;
     }
 
     /**
@@ -281,7 +283,7 @@ class SqsClient implements SqsClientInterface
 
                     $s3GetObjectResult = $s3Result['Body']->getContents();
 
-                } catch (S3Exception $e) {
+                } catch (AwsException $e) {
                     $s3GetObjectResult = '';
                 }
                 $receiveMessageResults['Messages'][$key]['Body'] = $s3GetObjectResult;
