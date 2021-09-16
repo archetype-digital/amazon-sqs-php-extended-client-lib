@@ -13,7 +13,6 @@ class S3PointerTest extends TestCase
 {
 
     /**
-     * @covers ::__toString
      * @dataProvider toStringProvider
      */
     public function testToString($bucket, $key, $receipt, $expected)
@@ -26,25 +25,58 @@ class S3PointerTest extends TestCase
 
     public function testContainsS3Pointer()
     {
-        $receiptHandle = '-..s3BucketName..-tegos-anapoket-sqs-test-..s3BucketName..--..s3Key..-9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json-..s3Key..-AQEBAR0nX3Jw9ZOYYtXasJn/vIdf03pifXsZ3HW49/U/5RfhcQVdLgYyYrlADLHLaXc3HfxwT8IILPJ/k2SFRvan+m+zOnEVknfEe4nETZkGJY+KU3DPAEmMsgl5hKbBNfuUE2wmQOMmANYAf4lFgDsqsJ5VM/ODsUzUiVbQDVzp5lsyYkV6VnZzckVFi4VNmkLYL3eUTybW+a1O10gQIF9/L8juCcGMm2aIPZEcokElPNCUMutzy60qU3bsQOzDkpDFqlVyHdTkTmyt9WFymfz66UbYSGjVaS9Xpdff2VmsfSJ97wBzHY/LkBuZWxZPpAdqM7pkKVn/o0Oo63JFdVtWcowceo8MH8Bn4v7p3YpwUX1pVJ2DrIXfN0/4EF8DaKVgXyuho8r2s7fK5afJjwFLfg==';
-        $this->assertEquals(true, (bool)S3Pointer::containsS3Pointer($receiptHandle));
+        $receiptHandle = '-..s3BucketName..-tegos-anapoket-sqs-test-..s3BucketName..--..s3Key..-9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json-..s3Key..-AQEBAR0nX3Jw9ZOYYtXasJn';
+        $this->assertEquals(true, S3Pointer::containsS3Pointer($receiptHandle));
+        $this->assertEquals(false, S3Pointer::containsS3Pointer('aaaaaa'));
+        $this->assertEquals(false, S3Pointer::containsS3Pointer('test'));
+        $this->assertEquals(false, S3Pointer::containsS3Pointer(''));
     }
 
     public function testGetS3PointerFromReceiptHandle()
     {
-        $receiptHandle = '-..s3BucketName..-tegos-anapoket-sqs-test-..s3BucketName..--..s3Key..-9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json-..s3Key..-AQEBAR0nX3Jw9ZOYYtXasJn/vIdf03pifXsZ3HW49/U/5RfhcQVdLgYyYrlADLHLaXc3HfxwT8IILPJ/k2SFRvan+m+zOnEVknfEe4nETZkGJY+KU3DPAEmMsgl5hKbBNfuUE2wmQOMmANYAf4lFgDsqsJ5VM/ODsUzUiVbQDVzp5lsyYkV6VnZzckVFi4VNmkLYL3eUTybW+a1O10gQIF9/L8juCcGMm2aIPZEcokElPNCUMutzy60qU3bsQOzDkpDFqlVyHdTkTmyt9WFymfz66UbYSGjVaS9Xpdff2VmsfSJ97wBzHY/LkBuZWxZPpAdqM7pkKVn/o0Oo63JFdVtWcowceo8MH8Bn4v7p3YpwUX1pVJ2DrIXfN0/4EF8DaKVgXyuho8r2s7fK5afJjwFLfg==';
+        $receiptHandle = '-..s3BucketName..-tegos-anapoket-sqs-test-..s3BucketName..--..s3Key..-9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json-..s3Key..-AQEBAR0nX3Jw9ZOYYtXasJn';
         $expected = [
             's3BucketName' => 'tegos-anapoket-sqs-test',
             's3Key' => '9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json'];
-        $this->assertEquals($expected, (array)S3Pointer::getS3PointerFromReceiptHandle($receiptHandle));
+        $this->assertEquals($expected, S3Pointer::getS3PointerFromReceiptHandle($receiptHandle));
     }
 
     public function testRemoveS3Pointer()
     {
-        $receiptHandle = '-..s3BucketName..-tegos-anapoket-sqs-test-..s3BucketName..--..s3Key..-9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json-..s3Key..-AQEBAR0nX3Jw9ZOYYtXasJn/vIdf03pifXsZ3HW49/U/5RfhcQVdLgYyYrlADLHLaXc3HfxwT8IILPJ/k2SFRvan+m+zOnEVknfEe4nETZkGJY+KU3DPAEmMsgl5hKbBNfuUE2wmQOMmANYAf4lFgDsqsJ5VM/ODsUzUiVbQDVzp5lsyYkV6VnZzckVFi4VNmkLYL3eUTybW+a1O10gQIF9/L8juCcGMm2aIPZEcokElPNCUMutzy60qU3bsQOzDkpDFqlVyHdTkTmyt9WFymfz66UbYSGjVaS9Xpdff2VmsfSJ97wBzHY/LkBuZWxZPpAdqM7pkKVn/o0Oo63JFdVtWcowceo8MH8Bn4v7p3YpwUX1pVJ2DrIXfN0/4EF8DaKVgXyuho8r2s7fK5afJjwFLfg==';
-        $expected = 'AQEBAR0nX3Jw9ZOYYtXasJn/vIdf03pifXsZ3HW49/U/5RfhcQVdLgYyYrlADLHLaXc3HfxwT8IILPJ/k2SFRvan+m+zOnEVknfEe4nETZkGJY+KU3DPAEmMsgl5hKbBNfuUE2wmQOMmANYAf4lFgDsqsJ5VM/ODsUzUiVbQDVzp5lsyYkV6VnZzckVFi4VNmkLYL3eUTybW+a1O10gQIF9/L8juCcGMm2aIPZEcokElPNCUMutzy60qU3bsQOzDkpDFqlVyHdTkTmyt9WFymfz66UbYSGjVaS9Xpdff2VmsfSJ97wBzHY/LkBuZWxZPpAdqM7pkKVn/o0Oo63JFdVtWcowceo8MH8Bn4v7p3YpwUX1pVJ2DrIXfN0/4EF8DaKVgXyuho8r2s7fK5afJjwFLfg==';
-        $this->assertEquals($expected, (string)S3Pointer::removeS3Pointer($receiptHandle));
+        $receiptHandle = '-..s3BucketName..-tegos-anapoket-sqs-test-..s3BucketName..--..s3Key..-9b4d4278-2aa9-477c-b4d1-a4a5bfc1bf61.json-..s3Key..-AQEBAR0nX3Jw9ZOYYtXasJn';
+        $expected = 'AQEBAR0nX3Jw9ZOYYtXasJn';
+        $this->assertEquals($expected, S3Pointer::removeS3Pointer($receiptHandle));
+        $this->assertEquals('test', S3Pointer::removeS3Pointer('test'));
+
     }
+
+    /**
+     * @dataProvider messageAttributeProvider
+     */
+    public function testIsS3Pointer($expect, $attr)
+    {
+        $this->assertEquals($expect, S3Pointer::isS3Pointer($attr));
+        $this->assertEquals($expect, S3Pointer::isS3Pointer($attr));
+
+    }
+
+    public function messageAttributeProvider()
+    {
+        return [
+            [true,  [
+                'ExtendedPayloadSize' => [
+                    'StringValue' => '[{},{"s3BucketName":"1", "s3Key":"2"},{},{}]'
+                ],
+            ]],
+            [false, [
+                'ExtendedPayloadSize' => [
+                    'StringValue' => '[{},{"aaa":"1", "ccc":"2"},{},{}]'
+                ],
+            ]],
+            [false, []],
+        ];
+    }
+
 
     /**
      * Test data for the __toString test.

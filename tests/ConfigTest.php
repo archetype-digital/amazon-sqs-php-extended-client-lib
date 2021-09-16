@@ -26,6 +26,36 @@ class ConfigTest extends TestCase
     }
 
     /**
+     * @covers ::getConfig
+     * @dataProvider constructorProvider
+     */
+    public function testGetConfig($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($args, $configuration->getConfig());
+    }
+
+    /**
+     * @covers ::getBucketName
+     * @dataProvider constructorProvider
+     */
+    public function testGetBucketName($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($bucketName, $configuration->getBucketName());
+    }
+
+    /**
+     * @covers ::getSendToS3
+     * @dataProvider constructorProvider
+     */
+    public function testGetSendToS3($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($sendToS3, $configuration->getSendToS3());
+    }
+
+    /**
      * Test data for the contructor test.
      *
      * @return array

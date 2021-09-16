@@ -49,6 +49,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::sendMessage
      */
     public function testSendMessage()
@@ -72,20 +73,6 @@ class SqsClientTest extends TestCase
         $sqsClient = new SqsClient($configuration);
 
         $params['MessageBody'] = json_encode(range(1, 257 * 1024));
-        $params['MessageAttributes'] = [
-            "Title" => [
-                'DataType' => "String",
-                'StringValue' => "The Hitchhiker's Guide to the Galaxy"
-            ],
-            "Author" => [
-                'DataType' => "String",
-                'StringValue' => "Douglas Adams."
-            ],
-            "WeeksOn" => [
-                'DataType' => "Number",
-                'StringValue' => "6"
-            ]
-        ];
         $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
 
@@ -95,6 +82,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::sendMessage
      */
     public function testSendMessage_NoUseS3()
@@ -116,7 +104,6 @@ class SqsClientTest extends TestCase
         $sqsClient = new SqsClient($configuration);
 
         $params['MessageBody'] = json_encode('this is short message aaaaa');
-        $params['MessageAttributes'] = [];
         $params['QueueUrl'] = self::SQS_URL;
         $sendMessageResult = $sqsClient->sendMessage($params);
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
@@ -125,6 +112,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::sendMessage
      */
     public function testSendMessage_SendFail()
@@ -148,6 +136,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::sendMessage
      */
     public function testSendMessage_NoBucket()
@@ -166,6 +155,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::sendMessage
      */
     public function testSendMessage_UseS3LimitValue()
@@ -206,6 +196,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::sendMessageBatch
      */
     public function testSendMessageBatch()
@@ -245,8 +236,29 @@ class SqsClientTest extends TestCase
         $this->assertEquals(200, $sendMessageResult['@metadata']['statusCode']);
     }
 
+
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     * @covers ::sendMessageBatch
+     */
+    public function testSendMessageBatch_NoBucket()
+    {
+        $configuration = new Config($this->awsConfig, '', 'IF_NEEDED');
+        $sqsClient = new SqsClient($configuration);
+        $entry = [
+            0 => [
+                'MessageBody' => json_encode(range(1, 257 * 1024)),
+            ]
+        ];
+        $params['Entries'] = $entry;
+        $this->expectException(\Exception::class);
+        $sqsClient->sendMessageBatch($params);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::receiveMessage
      */
     public function testReceiveMessage_NotS3()
@@ -282,6 +294,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::receiveMessage
      */
     public function testReceiveMessage_NoMessages()
@@ -315,6 +328,7 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
+     * @preserveGlobalState disabled
      * @covers ::receiveMessage
      */
     public function testReceiveMessage_FromS3()
@@ -371,7 +385,8 @@ class SqsClientTest extends TestCase
 
     /**
      * @runInSeparateProcess
-     * @covers ::receiveMessage
+     * @preserveGlobalState disabled
+     * @covers ::deleteMessage
      */
     public function testDeleteMessage_NotS3()
     {
@@ -400,7 +415,8 @@ class SqsClientTest extends TestCase
     /**
      * @runInSeparateProcess
      * @preserveGlobalState disabled
-     * @covers ::receiveMessage
+     * @covers ::deleteMessage
+     * @covers ::deleteFromS3
      */
     public function testDeleteMessage_S3()
     {
@@ -482,6 +498,7 @@ class SqsClientTest extends TestCase
      * @runInSeparateProcess
      * @preserveGlobalState disabled
      * @covers ::deleteMessageBatch
+     * @covers ::deleteFromS3
      */
     public function testDeleteMessageBatch_S3()
     {

@@ -114,11 +114,7 @@ class S3Pointer
      */
     public static function containsS3Pointer(string $receiptHandle): bool
     {
-        if (isset($receiptHandle)) {
-            return preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle);
-        } else {
-            return false;
-        }
+        return preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle);
     }
 
     /**
@@ -132,7 +128,6 @@ class S3Pointer
      */
     public static function getS3PointerFromReceiptHandle(string $receiptHandle): array
     {
-        $test =  S3Pointer::RECEIPT_HANDLER_MATCHER;
         preg_match(S3Pointer::RECEIPT_HANDLER_MATCHER, $receiptHandle, $s3Pointer);
         $s3Pointer = ['s3BucketName' => $s3Pointer['1'], 's3Key' => $s3Pointer['2']];
         return $s3Pointer;

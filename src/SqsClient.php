@@ -5,7 +5,6 @@ namespace AwsExtended;
 use Aws\Result;
 use Aws\S3\Exception\S3Exception;
 use Aws\Sdk;
-use Aws\Exception\AwsException;
 use Aws\ResultInterface;
 use Ramsey\Uuid\Uuid;
 
@@ -82,9 +81,7 @@ class SqsClient implements SqsClientInterface
                 ]];
         }
 
-        $sendMessageResult = $this->getSqsClient()->sendMessage($params);
-
-        return $sendMessageResult;
+        return $this->getSqsClient()->sendMessage($params);
     }
 
     /**
@@ -112,14 +109,7 @@ class SqsClient implements SqsClientInterface
                     ];
             }
         }
-        try {
-            $sendMessageResults = $this->getSqsClient()->sendMessageBatch($params);
-        } catch (AwsException $e) {
-            error_log($e->getMessage());
-            error_log($e->getTraceAsString());
-            throw new \Exception($e->getMessage());
-        }
-        return $sendMessageResults;
+        return $this->getSqsClient()->sendMessageBatch($params);
     }
 
     /**
@@ -173,15 +163,10 @@ class SqsClient implements SqsClientInterface
             $receiptHandle = $params['ReceiptHandle'];
         }
         // Delete the message from the SQS queue.
-        try {
-            $deleteMessageResult = $this->getSqsClient()->deleteMessage([
-                'QueueUrl' => $params['QueueUrl'],
-                'ReceiptHandle' => $receiptHandle
-            ]);
-        } catch (AWSException $e) {
-            throw new \Exception($e->getMessage());
-        }
-        return $deleteMessageResult;
+        return $this->getSqsClient()->deleteMessage([
+            'QueueUrl' => $params['QueueUrl'],
+            'ReceiptHandle' => $receiptHandle
+        ]);
     }
 
     /**
@@ -197,14 +182,7 @@ class SqsClient implements SqsClientInterface
             }
         }
         // Delete the message from the SQS queue.
-        try {
-            $deleteMessageResult = $this->getSqsClient()->deleteMessageBatch($params);
-        } catch (AWSException $e) {
-            error_log($e->getMessage());
-            error_log($e->getTraceAsString());
-            throw new \Exception($e->getMessage());
-        }
-        return $deleteMessageResult;
+        return $this->getSqsClient()->deleteMessageBatch($params);
     }
 
     /**
