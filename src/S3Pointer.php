@@ -93,8 +93,9 @@ class S3Pointer
     public static function isS3Pointer(array $messageAttributes): bool
     {
         // Check that the second element of the 2 position array has the expected
-        // keys (and no more) TODO
-        if (isset($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue']) && count(json_decode($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue']), true) == 4) {
+        if (isset($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue'])
+            && count(json_decode($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue']), true) == 4) {
+
             $pointerInfo = json_decode($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue'], true);
             return array_key_exists('s3BucketName', $pointerInfo[1]) && array_key_exists('s3Key', $pointerInfo[1]);
         } else {

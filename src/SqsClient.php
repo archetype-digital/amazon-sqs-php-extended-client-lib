@@ -2,13 +2,11 @@
 
 namespace AwsExtended;
 
-use _PHPStan_68495e8a9\Nette\Neon\Exception;
-use Aws\S3\S3Client;
+use Aws\Result;
 use Aws\S3\Exception\S3Exception;
 use Aws\Sdk;
 use Aws\Exception\AwsException;
 use Aws\ResultInterface;
-use Aws\Sqs\SqsClient as AwsSqsClient;
 use Ramsey\Uuid\Uuid;
 
 /**
@@ -66,7 +64,7 @@ class SqsClient implements SqsClientInterface
      */
     public function sendMessage(array $params): ResultInterface
     {
-        $useS3 = $this->isNeedS3(json_encode($params['MessageAttributes']) . $params['MessageBody']);
+        $useS3 = $this->isNeedS3($params);
         if ($useS3) {
             if (empty($this->config->getBucketName())) {
                 throw new \Exception('The bucket name is required when using S3');
@@ -83,14 +81,9 @@ class SqsClient implements SqsClientInterface
                     'StringValue' => $s3Pointer
                 ]];
         }
-        try {
-            $sendMessageResult = $this->getSqsClient()->sendMessage($params);
-        } catch (AwsException $e) {
-            // output error message if fails
-            error_log($e->getMessage());
-            error_log($e->getTraceAsString());
-            throw new \Exception($e->getMessage());
-        }
+
+        $sendMessageResult = $this->getSqsClient()->sendMessage($params);
+
         return $sendMessageResult;
     }
 
@@ -100,7 +93,7 @@ class SqsClient implements SqsClientInterface
     public function sendMessageBatch(array $params): ResultInterface
     {
         foreach ($params['Entries'] as $key => $value) {
-            $useS3 = $this->isNeedS3(json_encode($value['MessageAttributes']) . $value['MessageBody']);
+            $useS3 = $this->isNeedS3($value);
             if ($useS3) {
                 if (empty($this->config->getBucketName())) {
                     throw new \Exception('The bucket name is required when using S3');
@@ -117,8 +110,6 @@ class SqsClient implements SqsClientInterface
                             'StringValue' => $s3Pointer
                         ]
                     ];
-            } else {
-                continue;
             }
         }
         try {
@@ -137,24 +128,28 @@ class SqsClient implements SqsClientInterface
     public function receiveMessage(array $params): ResultInterface
     {
         // Get the message from the SQS queue.
-        $receiveMessageResults = $this->getSqsClient()->receiveMessage($params);
-        if (!isset($receiveMessageResults['Messages'])) {
-            return $receiveMessageResults;
+        $results = $this->getSqsClient()->receiveMessage($params);
+        if (!isset($results['Messages'])) {
+            return $results;
         }
+
+        $receiveMessageResults = $results->toArray();
 
         foreach ($receiveMessageResults['Messages'] as $key => $value) {
             //Fetch data from s3 if reference information for s3 is contained in MessageAttributes
             if (isset($value['MessageAttributes']) && S3Pointer::isS3Pointer($value['MessageAttributes'])) {
+
                 $pointerInfo = json_decode($value['MessageAttributes'][S3Pointer::RESERVED_ATTRIBUTE_NAME]['StringValue'], true);
                 $args = $pointerInfo[1];
                 try {
-                    $s3GetObjectResult = $this->getS3Client()->getObject([
+                    $s3Result = $this->getS3Client()->getObject([
                         'Bucket' => $args['s3BucketName'],
                         'Key' => $args['s3Key']
-                    ])['Body']->getContents();
+                    ]);
+
+                    $s3GetObjectResult = $s3Result['Body']->getContents();
+
                 } catch (S3Exception $e) {
-                    error_log($e->getMessage());
-                    error_log($e->getTraceAsString());
                     $s3GetObjectResult = '';
                 }
                 $receiveMessageResults['Messages'][$key]['Body'] = $s3GetObjectResult;
@@ -163,7 +158,7 @@ class SqsClient implements SqsClientInterface
                     $receiveMessageResults['Messages'][$key]['ReceiptHandle'];
             }
         }
-        return $receiveMessageResults;
+        return new Result($receiveMessageResults);
     }
 
     /**
@@ -184,8 +179,6 @@ class SqsClient implements SqsClientInterface
                 'ReceiptHandle' => $receiptHandle
             ]);
         } catch (AWSException $e) {
-            error_log($e->getMessage());
-            error_log($e->getTraceAsString());
             throw new \Exception($e->getMessage());
         }
         return $deleteMessageResult;
@@ -304,19 +297,16 @@ class SqsClient implements SqsClientInterface
      * @return bool
      * 　Returns true if only Sqs are used
      */
-    protected function isNeedS3($messageBody)
+    protected function isNeedS3($message)
     {
         switch ($this->config->getSendToS3()) {
             case ConfigInterface::ALWAYS:
                 $useS3 = true;
                 break;
 
-            case ConfigInterface::NEVER:
-                $useS3 = false;
-                break;
-
             case ConfigInterface::IF_NEEDED:
-                $useS3 = $this->isTooBig($messageBody);
+                $attributeJson = !isset($message['MessageAttributes']) ? '': json_encode($message['MessageAttributes']);
+                $useS3 = $this->isTooBig($message['MessageBody'] . $attributeJson);
                 break;
 
             default:
