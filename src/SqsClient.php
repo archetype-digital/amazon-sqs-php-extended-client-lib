@@ -284,10 +284,9 @@ class SqsClient implements SqsClientInterface
             //Fetch data from s3 if reference information for s3 is contained in MessageAttributes
             if (isset($value['MessageAttributes']) && S3Pointer::isS3Pointer($value)) {
 
+                $pointerInfo = json_decode($value['Body'], true);
+
                 try {
-
-                    $pointerInfo = json_decode($value['Body'], true);
-
                     $s3Result = $this->getS3Client()->getObject([
                         'Bucket' => $pointerInfo['s3BucketName'],
                         'Key' => $pointerInfo['s3Key']
