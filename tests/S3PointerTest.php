@@ -64,7 +64,42 @@ class S3PointerTest extends TestCase
     {
         return [
             [true,  [
-                'ExtendedPayloadSize' => [],
+                'MessageAttributes' => [
+                    'ExtendedPayloadSize' => [],
+                ],
+                'Body' => json_encode([
+                    's3BucketName' => 'test',
+                    's3Key' => 'test',
+                ])
+            ]],
+            [false,  [
+                'MessageAttributes' => [
+                    'ExtendedPayloadSize' => [],
+                ],
+                'Body' => json_encode([
+                    's3BucketName' => 'test',
+                ])
+            ]],
+            [false,  [
+                'MessageAttributes' => [
+                    'ExtendedPayloadSize' => [],
+                ],
+                'Body' => json_encode([
+                ])
+            ]],
+            [false,  [
+                'MessageAttributes' => [
+                    'ExtendedPayloadSize' => [],
+                ],
+                'Body' => 'test'
+            ]],
+            [false,  [
+                'MessageAttributes' => [
+                ],
+                'Body' => json_encode([
+                    's3BucketName' => 'test',
+                    's3Key' => 'test',
+                ])
             ]],
             [false, []],
         ];

@@ -43,7 +43,7 @@ class S3Pointer
     /**
      * The transaction response.
      *
-     * @var \Aws\ResultInterface
+     * @var ResultInterface
      */
     protected $s3Result;
 
@@ -55,7 +55,7 @@ class S3Pointer
      *   The name of the bucket to point to.
      * @param $key
      *   The name of the document in S3.
-     * @param \Aws\ResultInterface $s3Result
+     * @param ResultInterface $s3Result
      *   The response from the S3 operation that saved to object.
      */
     public function __construct($bucketName, $key, ResultInterface $s3Result = null)
@@ -63,22 +63,6 @@ class S3Pointer
         $this->bucketName = $bucketName;
         $this->key = $key;
         $this->s3Result = $s3Result;
-    }
-
-    /**
-     * Generates a JSON serialization of the pointer.
-     *
-     * @return string
-     *   The string version of the pointer.
-     */
-    public function __toString()
-    {
-        $infoKeys = ['@metadata', 'ObjectUrl'];
-        $metadata = $this->s3Result ?
-            array_map([$this->s3Result, 'get'], $infoKeys) :
-            [];
-        $pointer = ['s3BucketName' => $this->bucketName, 's3Key' => $this->key];
-        return json_encode([$metadata, $pointer]);
     }
 
     /**
@@ -90,10 +74,22 @@ class S3Pointer
      * @return bool
      *   TRUE if the result corresponds to an S3 pointer. FALSE otherwise.
      */
-    public static function isS3Pointer(array $messageAttributes): bool
+    public static function isS3Pointer(array $message): bool
     {
+        if (!isset($message['MessageAttributes'])) {
+            return false;
+        }
+        $messageAttributes = $message['MessageAttributes'];
         // Check that the second element of the 2 position array has the expected
-        return isset($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME]);
+        if (isset($messageAttributes[S3Pointer::RESERVED_ATTRIBUTE_NAME])) {
+            $body = json_decode($message['Body'], true);
+            if (empty($body)) {
+                return false;
+            }
+            return array_key_exists('s3BucketName', $body) && array_key_exists('s3Key', $body);
+        }
+
+        return false;
     }
 
     /**
@@ -126,7 +122,6 @@ class S3Pointer
         return $s3Pointer;
     }
 
-
     /**
      * remove S3 pointer from receiptHandle.
      *
@@ -143,5 +138,21 @@ class S3Pointer
         } else {
             return $receiptHandle;
         }
+    }
+
+    /**
+     * Generates a JSON serialization of the pointer.
+     *
+     * @return string
+     *   The string version of the pointer.
+     */
+    public function __toString()
+    {
+        $infoKeys = ['@metadata', 'ObjectUrl'];
+        $metadata = $this->s3Result ?
+            array_map([$this->s3Result, 'get'], $infoKeys) :
+            [];
+        $pointer = ['s3BucketName' => $this->bucketName, 's3Key' => $this->key];
+        return json_encode([$metadata, $pointer]);
     }
 }

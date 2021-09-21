@@ -266,6 +266,7 @@ class SqsClient implements SqsClientInterface
             $params['MessageAttributeNames'] = ['All'];
         } elseif (
             array_search('All', $params['MessageAttributeNames']) === false
+            && array_search('.*', $params['MessageAttributeNames']) === false
             && array_search(S3Pointer::RESERVED_ATTRIBUTE_NAME, $params['MessageAttributeNames']) === false
         ){
             $params['MessageAttributeNames'][] = S3Pointer::RESERVED_ATTRIBUTE_NAME;
@@ -281,11 +282,12 @@ class SqsClient implements SqsClientInterface
 
         foreach ($receiveMessageResults['Messages'] as $key => $value) {
             //Fetch data from s3 if reference information for s3 is contained in MessageAttributes
-            if (isset($value['MessageAttributes']) && S3Pointer::isS3Pointer($value['MessageAttributes'])) {
-
-                $pointerInfo = json_decode($value['Body'], true);
+            if (isset($value['MessageAttributes']) && S3Pointer::isS3Pointer($value)) {
 
                 try {
+
+                    $pointerInfo = json_decode($value['Body'], true);
+
                     $s3Result = $this->getS3Client()->getObject([
                         'Bucket' => $pointerInfo['s3BucketName'],
                         'Key' => $pointerInfo['s3Key']
