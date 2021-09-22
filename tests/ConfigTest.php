@@ -1,6 +1,7 @@
 <?php
 
-namespace AwsExtended;
+use AwsExtended\Config;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class ConfigTest.
@@ -9,39 +10,72 @@ namespace AwsExtended;
  *
  * @coversDefaultClass \AwsExtended\Config
  */
-class ConfigTest extends \PHPUnit_Framework_TestCase {
+class ConfigTest extends TestCase
+{
 
-  /**
-   * @covers ::__construct
-   * @dataProvider constructorProvider
-   */
-  public function testConstructor($args, $bucket_name, $sqs_url, $send_to_s3) {
-    $configuration = new Config($args, $bucket_name, $sqs_url, $send_to_s3);
-    $this->assertSame($args, $configuration->getConfig());
-    $this->assertSame($bucket_name, $configuration->getBucketName());
-    $this->assertSame($sqs_url, $configuration->getSqsUrl());
-    $this->assertSame($send_to_s3, $configuration->getSendToS3());
-  }
+    /**
+     * @covers ::__construct
+     * @dataProvider constructorProvider
+     */
+    public function testConstructor($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($args, $configuration->getConfig());
+        $this->assertSame($bucketName, $configuration->getBucketName());
+        $this->assertSame($sendToS3, $configuration->getSendToS3());
+    }
 
-  /**
-   * Test data for the contructor test.
-   *
-   * @return array
-   *   The data for the test method.
-   */
-  public function constructorProvider() {
-    return [
-      [[], 'lorem', 'ipsum', 'ALWAYS'],
-      [[1, 2, 'c'], 'dolor', 'sid', 'NEVER'],
-    ];
-  }
+    /**
+     * @covers ::getConfig
+     * @dataProvider constructorProvider
+     */
+    public function testGetConfig($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($args, $configuration->getConfig());
+    }
 
-  /**
-   * @covers ::__construct
-   * @expectedException \InvalidArgumentException
-   */
-  public function testConstructorFail() {
-    new Config([], 'lorem', 'ipsum', 'INVALID');
-  }
+    /**
+     * @covers ::getBucketName
+     * @dataProvider constructorProvider
+     */
+    public function testGetBucketName($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($bucketName, $configuration->getBucketName());
+    }
+
+    /**
+     * @covers ::getSendToS3
+     * @dataProvider constructorProvider
+     */
+    public function testGetSendToS3($args, $bucketName, $sendToS3)
+    {
+        $configuration = new Config($args, $bucketName, $sendToS3);
+        $this->assertSame($sendToS3, $configuration->getSendToS3());
+    }
+
+    /**
+     * Test data for the contructor test.
+     *
+     * @return array
+     *   The data for the test method.
+     */
+    public function constructorProvider()
+    {
+        return [
+            [[], 'lorem', 'ALWAYS'],
+            [[1, 2, 'c'], 'dolor', 'NEVER'],
+        ];
+    }
+
+    /**
+     * @covers ::__construct
+     */
+    public function testConstructorFail()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new Config([], 'lorem', 'INVALID');
+    }
 
 }
