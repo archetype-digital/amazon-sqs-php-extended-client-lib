@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/e0ipso/amazon-sqs-php-extended-client-lib.svg?branch=master)](https://travis-ci.org/e0ipso/amazon-sqs-php-extended-client-lib)
-
 Amazon SQS Extended Client Library for PHP
 ==========================================
 The **Amazon SQS Extended Client Library for PHP** enables you to manage Amazon SQS message payloads with Amazon S3. This is especially useful for storing and retrieving messages with a message payload size greater than the current SQS limit of 256 KB, up to a maximum of 2 GB. Specifically, you can use this library to:
