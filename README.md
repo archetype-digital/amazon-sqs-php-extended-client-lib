@@ -7,12 +7,6 @@ The **Amazon SQS Extended Client Library for PHP** enables you to manage Amazon 
 * Get the corresponding message object from an Amazon S3 bucket.
 * Delete the corresponding message object from an Amazon S3 bucket.
 
-You can install this library using composer doing:
-
-```
-composer require e0ipso/amazon-sqs-php-extended-client-lib
-```
-
 ## Getting Started
 * **Sign up for AWS** -- Before you begin, you need an AWS account. For more information about creating an AWS account and retrieving your AWS credentials, see [AWS Account and Credentials](http://docs.aws.amazon.com/aws-sdk-php/v3/guide/guide/credentials.html?highlight=credentials) in the AWS SDK for PHP Developer Guide.
 * **Sign up for Amazon SQS** -- Go to the Amazon [SQS console](https://console.aws.amazon.com/sqs/home?region=us-east-1) to sign up for the service.
