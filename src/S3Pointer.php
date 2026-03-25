@@ -55,10 +55,10 @@ class S3Pointer
      *   The name of the bucket to point to.
      * @param $key
      *   The name of the document in S3.
-     * @param ResultInterface $s3Result
+     * @param ResultInterface|null $s3Result
      *   The response from the S3 operation that saved to object.
      */
-    public function __construct($bucketName, $key, ResultInterface $s3Result = null)
+    public function __construct($bucketName, $key, ?ResultInterface $s3Result = null)
     {
         $this->bucketName = $bucketName;
         $this->key = $key;
