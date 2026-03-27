@@ -2,7 +2,7 @@ language: php
 sudo: false
 
 php:
-  - 8.0
+  - 8.4
   - hhvm
 
 cache:
